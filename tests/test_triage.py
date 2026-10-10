@@ -399,6 +399,23 @@ class LauncherTests(unittest.TestCase):
         self.assertIn("OPENAI_API_KEY is not set", result.stdout)
         self.assertNotIn("NativeCommandError", result.stdout + result.stderr)
 
+    def test_thai_output_under_oem_console_encoding_and_restore(self):
+        script = str(PROJECT_ROOT / "run.ps1").replace("'", "''")
+        command = (
+            "[Console]::OutputEncoding = [System.Text.Encoding]::GetEncoding(437); "
+            f"$lines = & '{script}' -Mode demo -TicketId ticket-002; "
+            "$expected = -join @([char]0x0E25,[char]0x0E39,[char]0x0E01,[char]0x0E04,[char]0x0E49,[char]0x0E32); "
+            "if (-not (($lines -join [Environment]::NewLine).Contains($expected))) { "
+            "Write-Output 'Thai text was decoded incorrectly inside PowerShell'; exit 1 }; "
+            "if ([Console]::OutputEncoding.CodePage -ne 437) { "
+            "Write-Output 'Original console encoding was not restored'; exit 1 }; "
+            "Write-Output 'Thai output and encoding restoration verified'; exit 0"
+        )
+        result = subprocess.run([self.pwsh, "-NoProfile", "-Command", command], cwd=PROJECT_ROOT,
+                                capture_output=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Thai output and encoding restoration verified", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

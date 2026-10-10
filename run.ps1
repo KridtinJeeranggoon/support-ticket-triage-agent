@@ -41,7 +41,12 @@ if ($TicketId) { $taskArguments += @('--ticket-id', $TicketId) }
 Push-Location -LiteralPath $PSScriptRoot
 $taskSavedErrorPreference = $ErrorActionPreference
 $taskSavedNativePreference = $PSNativeCommandUseErrorActionPreference
+$taskSavedConsoleEncoding = [Console]::OutputEncoding
+$taskSavedOutputEncoding = $OutputEncoding
 try {
+    # Python emits UTF-8. Decode its native output with the same encoding.
+    [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $OutputEncoding = [Console]::OutputEncoding
     # Present application stderr as readable text and preserve its exit code.
     $ErrorActionPreference = 'Continue'
     $PSNativeCommandUseErrorActionPreference = $false
@@ -50,6 +55,8 @@ try {
 } finally {
     $ErrorActionPreference = $taskSavedErrorPreference
     $PSNativeCommandUseErrorActionPreference = $taskSavedNativePreference
+    [Console]::OutputEncoding = $taskSavedConsoleEncoding
+    $OutputEncoding = $taskSavedOutputEncoding
     Pop-Location
 }
 exit $taskExit
