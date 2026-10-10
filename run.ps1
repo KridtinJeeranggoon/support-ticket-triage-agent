@@ -4,6 +4,19 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Test-TaskPython {
+    param([string]$Executable, [string]$ProbePath)
+    try {
+        # An unavailable interpreter may write stderr under Windows PowerShell.
+        # A failed candidate is expected here; continue to the next candidate.
+        & $Executable $ProbePath 2>$null | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    }
+}
+
+$taskProbePath = Join-Path $PSScriptRoot 'scripts\check_runtime.py'
 $taskCandidates = [System.Collections.Generic.List[string]]::new()
 $taskVenv = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (Test-Path -LiteralPath $taskVenv) { $taskCandidates.Add($taskVenv) }
@@ -15,8 +28,10 @@ $taskBundledPython = Join-Path $env:USERPROFILE '.cache\codex-runtimes\codex-pri
 if (Test-Path -LiteralPath $taskBundledPython) { $taskCandidates.Add($taskBundledPython) }
 $taskPython = $null
 foreach ($taskCandidate in $taskCandidates) {
-    & $taskCandidate -c 'import sys, pydantic; assert sys.version_info >= (3, 11); assert int(pydantic.__version__.split(".")[0]) == 2' 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { $taskPython = $taskCandidate; break }
+    if (Test-TaskPython -Executable $taskCandidate -ProbePath $taskProbePath) {
+        $taskPython = $taskCandidate
+        break
+    }
 }
 if (-not $taskPython) {
     throw 'Python 3.11+ with Pydantic 2 was not found. Follow README setup instructions.'
@@ -24,10 +39,17 @@ if (-not $taskPython) {
 $taskArguments = @('-m', 'triage', '--mode', $Mode, '--trace', '--output', (Join-Path $PSScriptRoot "runs\$Mode.json"))
 if ($TicketId) { $taskArguments += @('--ticket-id', $TicketId) }
 Push-Location -LiteralPath $PSScriptRoot
+$taskSavedErrorPreference = $ErrorActionPreference
+$taskSavedNativePreference = $PSNativeCommandUseErrorActionPreference
 try {
-    & $taskPython @taskArguments
+    # Present application stderr as readable text and preserve its exit code.
+    $ErrorActionPreference = 'Continue'
+    $PSNativeCommandUseErrorActionPreference = $false
+    & $taskPython @taskArguments 2>&1 | ForEach-Object { Write-Output $_.ToString() }
     $taskExit = $LASTEXITCODE
 } finally {
+    $ErrorActionPreference = $taskSavedErrorPreference
+    $PSNativeCommandUseErrorActionPreference = $taskSavedNativePreference
     Pop-Location
 }
 exit $taskExit

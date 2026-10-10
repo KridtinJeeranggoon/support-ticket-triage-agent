@@ -6,6 +6,7 @@ These tests use scripted model responses. They do not establish GPT accuracy.
 import copy
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -357,6 +358,46 @@ class CLITests(unittest.TestCase):
                                    capture_output=True, encoding="utf-8", env=environment)
         self.assertEqual(completed.returncode, 2)
         self.assertIn("OPENAI_API_KEY", completed.stderr)
+
+
+@unittest.skipUnless(os.name == "nt", "Windows launcher tests")
+class LauncherTests(unittest.TestCase):
+    def setUp(self):
+        self.pwsh = shutil.which("pwsh")
+        if self.pwsh is None:
+            bundled = Path.home() / ".cache/codex-runtimes/codex-primary-runtime/dependencies/native/powershell/pwsh.exe"
+            if bundled.is_file():
+                self.pwsh = str(bundled)
+        if self.pwsh is None:
+            self.skipTest("PowerShell 7 was not found")
+
+    def test_demo_launcher_runs(self):
+        result = subprocess.run([self.pwsh, "-NoProfile", "-File", str(PROJECT_ROOT / "run.ps1"),
+                                 "-Mode", "demo", "-TicketId", "ticket-002"],
+                                cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("critical", result.stdout)
+        self.assertNotIn("NativeCommandError", result.stdout + result.stderr)
+
+    def test_legacy_argument_passing_with_native_error_preference(self):
+        script = str(PROJECT_ROOT / "run.ps1").replace("'", "''")
+        command = ("$PSNativeCommandArgumentPassing = 'Legacy'; "
+                   "$PSNativeCommandUseErrorActionPreference = $true; "
+                   f"& '{script}' -Mode demo -TicketId ticket-002")
+        result = subprocess.run([self.pwsh, "-NoProfile", "-Command", command], cwd=PROJECT_ROOT,
+                                capture_output=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("critical", result.stdout)
+
+    def test_missing_key_is_readable_and_preserves_exit_code(self):
+        environment = dict(os.environ)
+        environment.pop("OPENAI_API_KEY", None)
+        result = subprocess.run([self.pwsh, "-NoProfile", "-File", str(PROJECT_ROOT / "run.ps1"),
+                                 "-Mode", "openai", "-TicketId", "ticket-001"],
+                                cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", env=environment)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
+        self.assertIn("OPENAI_API_KEY is not set", result.stdout)
+        self.assertNotIn("NativeCommandError", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

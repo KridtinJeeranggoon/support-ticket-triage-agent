@@ -16,4 +16,4 @@ Use held-out, expert-labeled English/Thai tickets, including multi-message escal
 
 ## Validation and limitations
 
-33 offline integration/failure tests and all three scripted sample checks passed. Demo decisions are prepared fixtures; they do not measure model intelligence. The real GPT adapter is implemented; a live attempt returned HTTP 429, so no successful model decision has been verified. Tools use mock data; automated remediation and approval execution are outside scope.
+36 offline integration/failure tests and all three scripted sample checks passed. Demo decisions are prepared fixtures; they do not measure model intelligence. The real GPT adapter is implemented; a live attempt returned HTTP 429, so no successful model decision has been verified. Tools use mock data; automated remediation and approval execution are outside scope.

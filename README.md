@@ -20,7 +20,7 @@ python3 -m venv .venv
 .venv/bin/python -m triage --mode demo --trace --output runs/demo.json
 ```
 
-`run.ps1` is an optional Windows convenience launcher. It prefers a project virtual environment, then a compatible installed interpreter, then the Codex bundled interpreter when present. It does not install packages or change execution policy. From this folder, run `& .\run.ps1 -Mode demo`.
+`run.ps1` is an optional Windows convenience launcher. It prefers a project virtual environment, then a compatible installed interpreter, then the Codex bundled interpreter when present. Its runtime probe is a Python file, avoiding embedded-quote differences in native argument passing, and unavailable interpreters are skipped. It does not install packages or change execution policy. From this folder, run `& .\run.ps1 -Mode demo`.
 
 ## Real GPT mode
 
@@ -48,7 +48,7 @@ unset OPENAI_API_KEY
 
 The default GPT model supports function calling and structured output. Change `OPENAI_MODEL` to another compatible OpenAI GPT model if needed. The small REST adapter uses Python's standard library and the Responses endpoint directly; there is no additional SDK dependency. Each run has bounded model/tool calls, request timeouts, and at most two retries for transient API failures. Real GPT mode makes chargeable requests.
 
-**Verification status:** 33 offline integration and failure-handling tests pass. The candidate's live attempt returned HTTP 429 for all tickets, with no valid model decision. The original error output did not identify the 429 subtype. Updated diagnostics distinguish quota/billing failures from temporary throttling without printing raw response bodies. No successful live model run has been verified.
+**Verification status:** 36 offline integration and failure-handling tests pass. The candidate's live attempt returned HTTP 429 for all tickets, with no valid model decision. The original error output did not identify the 429 subtype. Updated diagnostics distinguish quota/billing failures from temporary throttling without printing raw response bodies. No successful live model run has been verified.
 
 ## Troubleshooting HTTP 429
 
