@@ -32,7 +32,11 @@ class Decision(Contract):
     ticket_id: str
     urgency: Literal["critical", "high", "medium", "low"]
     product: str = Field(min_length=1)
-    issue_types: list[str] = Field(min_length=1)
+    issue_types: list[Literal[
+        "billing_dispute", "upgrade_entitlement_failure", "access_failure",
+        "possible_service_incident", "appearance_malfunction", "feature_request",
+        "how_to", "other",
+    ]] = Field(min_length=1)
     sentiment: Literal["positive", "neutral", "concerned", "frustrated", "angry", "mixed"]
     summary: str = Field(min_length=1)
     urgency_reason: str = Field(min_length=1)

@@ -59,6 +59,16 @@
     },
     "issue_types": {
       "items": {
+        "enum": [
+          "billing_dispute",
+          "upgrade_entitlement_failure",
+          "access_failure",
+          "possible_service_incident",
+          "appearance_malfunction",
+          "feature_request",
+          "how_to",
+          "other"
+        ],
         "type": "string"
       },
       "minItems": 1,

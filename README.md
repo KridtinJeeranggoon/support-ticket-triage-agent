@@ -129,6 +129,8 @@ If a model refuses, outputs invalid JSON, skips required tools, cites unavailabl
 
 The offline tests cover the full function-call loop, customer isolation, Thai lookup, missing data, invented citations, required tool use, schema failures, refusal/incomplete output, loop limits, human approval and REST error handling. The three-case rubric permits high or critical for the billing case but requires human/specialist involvement; the access case must be critical; the appearance case must retain the malfunction and feature request. Exact issue labels are a prototype taxonomy and may need semantic review when evaluating real model outputs.
 
+Issue types use a fixed prototype taxonomy in the output schema, with `other` for unsupported categories. A valid taxonomy value can still be semantically wrong; classification accuracy requires reference labels and human review.
+
 The three assignment cases are a smoke test, not a sufficient benchmark. Before production, evaluate held-out expert-labeled cases including calm outages, angry low-impact requests, multi-issue conversations, stale/conflicting KB, failed tools, missing metadata, Thai/English variation and prompt injection. Measure critical-ticket recall, urgency confusion, routing correctness, extraction accuracy, unsupported claims, retrieval relevance, latency, token cost and human overrides. Review traces to distinguish tool/data failures from model errors. Start in shadow mode and keep a rollback path.
 
 Local result files contain support content and tool observations. Use synthetic data here. Production requires access control, redaction and retention rules before recording real customer conversations.
