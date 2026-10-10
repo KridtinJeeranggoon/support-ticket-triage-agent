@@ -141,4 +141,5 @@ class TriageAgent:
             reason = str(exc) if isinstance(exc, BackendError) else "Unexpected processing failure; human review is required."
             return {**envelope, "run_status": "needs_human_review", "decision": None,
                     "tool_trace": trace, "validation_notes": corrections, "failure_reason": reason,
+                    "stop_batch": isinstance(exc, BackendError) and exc.stop_batch,
                     "latency_seconds": round(time.monotonic() - started, 3)}

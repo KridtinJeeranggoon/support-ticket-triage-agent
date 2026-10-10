@@ -18,7 +18,7 @@ from unittest.mock import patch
 from pydantic import ValidationError
 
 from triage.agent import TriageAgent
-from triage.backends import BackendError, DemoBackend, OpenAIBackend
+from triage.backends import BackendError, DemoBackend, OpenAIBackend, retry_after_seconds
 from triage.evaluate import evaluate
 from triage.models import Decision, Ticket
 from triage.tools import PROJECT_ROOT, ToolRegistry, tool_definitions
@@ -240,7 +240,8 @@ class TransportTests(unittest.TestCase):
     def test_rate_limit_retries_but_auth_errors_do_not(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
             backend = OpenAIBackend(retries=1)
-            limited = urllib.error.HTTPError(backend.endpoint, 429, "limited", {}, None)
+            limited = urllib.error.HTTPError(backend.endpoint, 429, "limited", {},
+                BytesIO(b'{"error":{"type":"rate_limit_error","code":"rate_limit_exceeded"}}'))
             with patch("urllib.request.urlopen", side_effect=limited) as mocked, patch("time.sleep"):
                 with self.assertRaisesRegex(BackendError, "429"):
                     backend.respond({"input": []})
@@ -250,6 +251,59 @@ class TransportTests(unittest.TestCase):
                 with self.assertRaisesRegex(BackendError, "401"):
                     backend.respond({"input": []})
                 self.assertEqual(mocked.call_count, 1)
+
+    def test_quota_errors_do_not_retry_and_stop_batch(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
+            for code in ("insufficient_quota", "credit_balance_exhausted", "project_spend_limit_exceeded"):
+                backend = OpenAIBackend()
+                body = json.dumps({"error": {"code": code, "type": "insufficient_quota"}}).encode()
+                error = urllib.error.HTTPError(backend.endpoint, 429, "quota", {}, BytesIO(body))
+                with patch("urllib.request.urlopen", side_effect=error) as mocked, patch("time.sleep") as sleep:
+                    with self.assertRaises(BackendError) as captured:
+                        backend.respond({"input": []})
+                    self.assertIn(code, str(captured.exception))
+                    self.assertTrue(captured.exception.stop_batch)
+                    self.assertEqual(mocked.call_count, 1)
+                    sleep.assert_not_called()
+
+    def test_unknown_error_body_is_not_exposed_or_blindly_retried(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
+            backend = OpenAIBackend()
+            body = b'{"error":{"code":"private-secret","message":"private-customer-data"}}'
+            error = urllib.error.HTTPError(backend.endpoint, 429, "unknown", {}, BytesIO(body))
+            with patch("urllib.request.urlopen", side_effect=error) as mocked:
+                with self.assertRaises(BackendError) as captured:
+                    backend.respond({"input": []})
+                self.assertIn("unclassified", str(captured.exception))
+                self.assertNotIn("private", str(captured.exception))
+                self.assertEqual(mocked.call_count, 1)
+
+    def test_retry_after_is_honored(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
+            backend = OpenAIBackend(retries=1)
+            error = urllib.error.HTTPError(backend.endpoint, 429, "limited", {"Retry-After": "5"},
+                BytesIO(b'{"error":{"code":"rate_limit_exceeded"}}'))
+            with patch("urllib.request.urlopen", side_effect=[error, BytesIO(b'{"status":"completed","output":[]}')]), \
+                    patch("time.sleep") as sleep, patch("random.uniform", return_value=0):
+                backend.respond({"input": []})
+                sleep.assert_called_once_with(5)
+
+    def test_large_retry_after_defers_instead_of_retrying_early(self):
+        with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
+            backend = OpenAIBackend(max_retry_delay=30)
+            error = urllib.error.HTTPError(backend.endpoint, 429, "limited", {"Retry-After": "120"},
+                BytesIO(b'{"error":{"code":"slow_down"}}'))
+            with patch("urllib.request.urlopen", side_effect=error) as mocked, patch("time.sleep") as sleep:
+                with self.assertRaisesRegex(BackendError, "defer"):
+                    backend.respond({"input": []})
+                self.assertEqual(mocked.call_count, 1)
+                sleep.assert_not_called()
+
+    def test_retry_after_rejects_nonfinite_and_bad_values(self):
+        self.assertEqual(retry_after_seconds({"Retry-After": "7"}), 7)
+        self.assertIsNone(retry_after_seconds({"Retry-After": "nan"}))
+        self.assertIsNone(retry_after_seconds({"Retry-After": "not-a-date"}))
+        self.assertIsNone(retry_after_seconds({}))
 
     def test_network_failure_and_malformed_body(self):
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-not-a-real-key"}):
@@ -263,6 +317,29 @@ class TransportTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
+    def test_quota_failure_stops_before_remaining_tickets(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from triage.__main__ import main
+
+        class QuotaBackend:
+            mode = "test"
+            model = "test"
+            calls = 0
+
+            def respond(self, payload):
+                self.calls += 1
+                raise BackendError("OpenAI HTTP 429 (insufficient_quota).", stop_batch=True)
+
+        backend = QuotaBackend()
+        output = StringIO()
+        with patch("sys.argv", ["triage", "--mode", "openai"]), \
+                patch("triage.__main__.OpenAIBackend", return_value=backend), redirect_stdout(output):
+            code = main()
+        self.assertEqual(code, 2)
+        self.assertEqual(backend.calls, 1)
+        self.assertIn("2 remaining ticket(s) were not processed", output.getvalue())
+
     def test_demo_cli_saves_results(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "results.json"

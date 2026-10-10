@@ -1,10 +1,14 @@
 """Interchangeable Responses API and deterministic fixture transports."""
 
 import json
+import math
 import os
+import random
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -12,7 +16,58 @@ from .tools import PROJECT_ROOT
 
 
 class BackendError(RuntimeError):
-    pass
+    def __init__(self, message: str, stop_batch: bool = False):
+        super().__init__(message)
+        self.stop_batch = stop_batch
+
+
+QUOTA_CODES = {
+    "insufficient_quota", "billing_hard_limit_reached", "quota_exceeded",
+    "credit_balance_exhausted", "organization_spend_limit_exceeded",
+    "project_spend_limit_exceeded", "organization_usage_limit_exceeded",
+}
+RATE_CODES = {"rate_limit_exceeded", "slow_down"}
+
+
+def classify_api_error(exc: urllib.error.HTTPError) -> tuple[str, str]:
+    """Read a small error body, but expose only allowlisted diagnostic labels."""
+
+    try:
+        body = json.loads(exc.read(8192).decode("utf-8"))
+        error = body.get("error", {}) if isinstance(body, dict) else {}
+        if not isinstance(error, dict):
+            return "unknown", "unclassified"
+        code, kind = error.get("code"), error.get("type")
+        if isinstance(code, str) and code in QUOTA_CODES:
+            return "quota", code
+        if kind == "insufficient_quota":
+            return "quota", "insufficient_quota"
+        if isinstance(code, str) and code in RATE_CODES:
+            return "rate", code
+        if kind == "rate_limit_error":
+            return "rate", "rate_limit_error"
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    return "unknown", "unclassified"
+
+
+def retry_after_seconds(headers) -> float | None:
+    """Accept Retry-After seconds or an HTTP date; ignore malformed values."""
+
+    value = headers.get("Retry-After") if headers is not None else None
+    if not isinstance(value, str):
+        return None
+    try:
+        delay = float(value)
+        return max(0, delay) if math.isfinite(delay) else None
+    except ValueError:
+        try:
+            deadline = parsedate_to_datetime(value)
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            return max(0, (deadline - datetime.now(timezone.utc)).total_seconds())
+        except (ValueError, TypeError, OverflowError):
+            return None
 
 
 class Backend(Protocol):
@@ -28,13 +83,15 @@ class OpenAIBackend:
     mode = "openai"
     endpoint = "https://api.openai.com/v1/responses"
 
-    def __init__(self, model: str | None = None, timeout: float = 30, retries: int = 2):
+    def __init__(self, model: str | None = None, timeout: float = 30, retries: int = 2,
+                 max_retry_delay: float = 30):
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
         self._key = os.getenv("OPENAI_API_KEY")
         if not self._key:
             raise BackendError("OPENAI_API_KEY is not set. Use --mode demo for an offline walkthrough.")
         self.timeout = timeout
         self.retries = retries
+        self.max_retry_delay = max_retry_delay
 
     def respond(self, payload: dict) -> dict:
         body = json.dumps({**payload, "model": self.model}, ensure_ascii=False).encode("utf-8")
@@ -50,11 +107,36 @@ class OpenAIBackend:
                     raise BackendError("OpenAI returned an invalid response object.")
                 return value
             except urllib.error.HTTPError as exc:
-                if exc.code in {429, 500, 502, 503, 504} and attempt < self.retries:
-                    time.sleep(2 ** attempt)
-                    continue
+                category, code = classify_api_error(exc)
+                server_delay = retry_after_seconds(exc.headers)
+                status = exc.code
+                exc.close()
+                if status == 429 and category == "quota":
+                    raise BackendError(
+                        f"OpenAI HTTP 429 ({code}). API quota/billing is unavailable. "
+                        "Check API credits and organization/project limits; retrying will not fix this.",
+                        stop_batch=True,
+                    ) from None
+                transient = (status == 429 and category == "rate") or status in {500, 502, 503, 504}
+                if transient and attempt < self.retries:
+                    base_delay = max(2 ** attempt, server_delay or 0)
+                    if base_delay <= self.max_retry_delay:
+                        delay = min(self.max_retry_delay, base_delay + random.uniform(0, 0.25))
+                        time.sleep(delay)
+                        continue
+                    raise BackendError(
+                        f"OpenAI HTTP {status} ({code}). Retry delay exceeds the configured "
+                        f"{self.max_retry_delay:g}s cap; defer this run rather than retry too early.",
+                        stop_batch=True,
+                    ) from None
+                if status == 429:
+                    detail = ("Temporary rate limit; retry later and reduce request/token rate."
+                              if category == "rate" else
+                              "The cause is unclassified; check API credits and limits before retrying.")
+                    raise BackendError(f"OpenAI HTTP 429 ({code}). {detail}", stop_batch=True) from None
                 # Do not print API response bodies, authorization headers or ticket text.
-                raise BackendError(f"OpenAI HTTP {exc.code}; no decision was executed.") from None
+                raise BackendError(f"OpenAI HTTP {status}; no decision was executed.",
+                                   stop_batch=status in {401, 403}) from None
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 if attempt < self.retries:
                     time.sleep(2 ** attempt)

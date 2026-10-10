@@ -38,7 +38,7 @@ def main() -> int:
         # Validate the file and configuration before any chargeable requests.
         shared_backend = OpenAIBackend() if args.mode == "openai" else None
         results = []
-        for ticket in tickets:
+        for index, ticket in enumerate(tickets):
             backend = shared_backend or DemoBackend(ticket.model_dump())
             result = TriageAgent(backend).run(ticket)
             results.append(result)
@@ -60,6 +60,10 @@ def main() -> int:
                         print(f"    {match['id']} | keyword_match_count={match['match_score']}")
                 for note in result["validation_notes"]:
                     print(f"  VALIDATION {note}")
+            if result.get("stop_batch"):
+                remaining = len(tickets) - index - 1
+                print(f"\nStopped batch: resolve the API issue before retrying. {remaining} remaining ticket(s) were not processed.")
+                break
         if args.output:
             args.output.parent.mkdir(parents=True, exist_ok=True)
             args.output.write_text(json.dumps(results, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

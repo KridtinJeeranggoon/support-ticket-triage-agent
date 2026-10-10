@@ -48,7 +48,19 @@ unset OPENAI_API_KEY
 
 The default GPT model supports function calling and structured output. Change `OPENAI_MODEL` to another compatible OpenAI GPT model if needed. The small REST adapter uses Python's standard library and the Responses endpoint directly; there is no additional SDK dependency. Each run has bounded model/tool calls, request timeouts, and at most two retries for transient API failures. Real GPT mode makes chargeable requests.
 
-**Verification status:** offline integration and failure-handling tests pass. A live OpenAI call has not been performed because no API key was available. The API adapter has been tested with simulated HTTP responses, which does not establish service compatibility or model quality.
+**Verification status:** 33 offline integration and failure-handling tests pass. The candidate's live attempt returned HTTP 429 for all tickets, with no valid model decision. The original error output did not identify the 429 subtype. Updated diagnostics distinguish quota/billing failures from temporary throttling without printing raw response bodies. No successful live model run has been verified.
+
+## Troubleshooting HTTP 429
+
+Run one ticket first: `& .\run.ps1 -Mode openai -TicketId ticket-001`.
+
+| Diagnostic label | Meaning | Recovery |
+|---|---|---|
+| `insufficient_quota`, credit/spend/usage limit labels | API quota or billing availability | Check the API organization's credits and applicable project/organization limits; repeated requests do not resolve this |
+| `rate_limit_exceeded`, `slow_down`, `rate_limit_error` | Temporary traffic throttling | Pace requests; follow Retry-After when supplied |
+| `unclassified` | Insufficient recognized diagnostic information | Check API limits and account state; do not assume the cause |
+
+Quota failures are not retried. Temporary throttling uses bounded backoff with jitter, respecting Retry-After. A required delay above the 30-second retry-delay cap defers the run rather than retrying early. Account/access failures and exhausted or unclassified 429 responses stop the batch; remaining tickets are not processed. Only allowlisted error labels are displayed; raw messages, credentials and customer text are excluded. A `needs_human_review` result caused by API failure is an operational fallback, not an AI classification of customer urgency. See [OpenAI error codes](https://developers.openai.com/api/docs/guides/error-codes).
 
 ## Modes and sample data
 
