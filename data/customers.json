@@ -1,0 +1,5 @@
+{
+  "customer-001": {"plan": "Free", "tenure_months": 4, "previous_support_tickets": 0, "upgrade_attempted": true},
+  "customer-002": {"plan": "Enterprise", "region": "Thailand", "seats": 45, "tenure_months": 8, "first_critical_issue": true},
+  "customer-003": {"plan": "Pro", "tenure_months": 5, "daily_logins": true, "previous_support_tickets": 0}
+}

@@ -1,0 +1,4 @@
+{
+  "Thailand": {"public_status": "all_systems_operational", "confirmed_incidents": [], "internal_telemetry_available": false, "scope": "Mock public status snapshot only; does not verify this customer's access."},
+  "Asia": {"public_status": "all_systems_operational", "confirmed_incidents": [], "internal_telemetry_available": false, "scope": "Mock public status snapshot only; does not establish regional health."}
+}

@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "enum": [
+            "customer_report",
+            "customer_history",
+            "knowledge_base",
+            "service_status"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "reference": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "observation": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Observation",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "reference",
+        "observation"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "What the model proposes. Approval is derived by application code.",
+  "properties": {
+    "ticket_id": {
+      "title": "Ticket Id",
+      "type": "string"
+    },
+    "urgency": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Urgency",
+      "type": "string"
+    },
+    "product": {
+      "minLength": 1,
+      "title": "Product",
+      "type": "string"
+    },
+    "issue_types": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Issue Types",
+      "type": "array"
+    },
+    "sentiment": {
+      "enum": [
+        "positive",
+        "neutral",
+        "concerned",
+        "frustrated",
+        "angry",
+        "mixed"
+      ],
+      "title": "Sentiment",
+      "type": "string"
+    },
+    "summary": {
+      "minLength": 1,
+      "title": "Summary",
+      "type": "string"
+    },
+    "urgency_reason": {
+      "minLength": 1,
+      "title": "Urgency Reason",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "minItems": 1,
+      "title": "Evidence",
+      "type": "array"
+    },
+    "suspected_causes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Suspected Causes",
+      "type": "array"
+    },
+    "unknowns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Unknowns",
+      "type": "array"
+    },
+    "recommended_action": {
+      "enum": [
+        "auto_respond",
+        "route_to_specialist",
+        "escalate_to_human"
+      ],
+      "title": "Recommended Action",
+      "type": "string"
+    },
+    "destination": {
+      "minLength": 1,
+      "title": "Destination",
+      "type": "string"
+    },
+    "next_steps": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Next Steps",
+      "type": "array"
+    },
+    "draft_reply": {
+      "minLength": 1,
+      "title": "Draft Reply",
+      "type": "string"
+    },
+    "knowledge_base_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Knowledge Base Ids",
+      "type": "array"
+    }
+  },
+  "required": [
+    "ticket_id",
+    "urgency",
+    "product",
+    "issue_types",
+    "sentiment",
+    "summary",
+    "urgency_reason",
+    "evidence",
+    "suspected_causes",
+    "unknowns",
+    "recommended_action",
+    "destination",
+    "next_steps",
+    "draft_reply",
+    "knowledge_base_ids"
+  ],
+  "title": "Decision",
+  "type": "object"
+}

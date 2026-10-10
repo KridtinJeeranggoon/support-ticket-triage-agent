@@ -1,0 +1,75 @@
+[
+  {
+    "type": "function",
+    "name": "get_customer_history",
+    "description": "Read the current customer's plan and support history. Pass only the customer_id on the ticket.",
+    "strict": true,
+    "parameters": {
+      "additionalProperties": false,
+      "properties": {
+        "customer_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Customer Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "customer_id"
+      ],
+      "title": "HistoryArgs",
+      "type": "object"
+    }
+  },
+  {
+    "type": "function",
+    "name": "search_knowledge_base",
+    "description": "Search fictional FAQ/runbooks using issue-focused terms. Returns relevant text and document IDs; scores are lexical match counts, not probabilities.",
+    "strict": true,
+    "parameters": {
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Query",
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query",
+        "limit"
+      ],
+      "title": "SearchArgs",
+      "type": "object"
+    }
+  },
+  {
+    "type": "function",
+    "name": "check_service_status",
+    "description": "Read a mock public status snapshot for a region. A green result does not verify a customer's access.",
+    "strict": true,
+    "parameters": {
+      "additionalProperties": false,
+      "properties": {
+        "region": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Region",
+          "type": "string"
+        }
+      },
+      "required": [
+        "region"
+      ],
+      "title": "StatusArgs",
+      "type": "object"
+    }
+  }
+]

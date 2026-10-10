@@ -1,0 +1,90 @@
+{
+  "ticket-001": {
+    "tool_calls": [
+      {"name": "get_customer_history", "arguments": {"customer_id": "customer-001"}},
+      {"name": "search_knowledge_base", "arguments": {"query": "failed payment upgrade repeated pending charges Pro access refund dispute export deadline", "limit": 3}}
+    ],
+    "decision": {
+      "ticket_id": "ticket-001",
+      "urgency": "high",
+      "product": "unknown",
+      "issue_types": ["billing_dispute", "upgrade_entitlement_failure"],
+      "sentiment": "angry",
+      "summary": "Customer reports three $29.99 charges after failed upgrade attempts, remains on Free, and needs Pro export for a presentation in two hours.",
+      "urgency_reason": "Repeated reported charges, missing paid access, a two-hour deadline and a threatened bank dispute create urgent individual impact; broad service failure is not established.",
+      "evidence": [
+        {"source": "customer_report", "reference": "message:3", "observation": "Customer reports three $29.99 charges and no Pro access; captured versus pending payment status is unverified."},
+        {"source": "customer_report", "reference": "message:4", "observation": "Presentation is in two hours; customer threatens a bank dispute by end of day."},
+        {"source": "customer_history", "reference": "customer-001", "observation": "Mock history shows Free plan, four-month tenure, an upgrade attempt and no prior support tickets."},
+        {"source": "knowledge_base", "reference": "KB-BILLING", "observation": "Mock billing guidance requires provider verification of holds versus captured payments and a separate entitlement check."}
+      ],
+      "suspected_causes": ["Payment processing and entitlement activation may not have completed together; this is not a confirmed cause."],
+      "unknowns": ["Whether all three reported amounts were captured or are pending holds", "Payment-provider transaction status", "Why Pro entitlement has not activated"],
+      "recommended_action": "route_to_specialist",
+      "destination": "billing_support",
+      "next_steps": ["Propose urgent billing review with the reported two-hour deadline", "Verify payment-provider transaction IDs and entitlement status", "Request human approval before any refund, entitlement change or customer reply"],
+      "draft_reply": "I understand you need Pro export for a presentation in two hours, and you are seeing three $29.99 amounts while your account remains on Free. Those reports need an urgent billing review to verify the payment status and your Pro access. I cannot confirm a refund or restored access yet; the proposed next step is a billing specialist review with your deadline included.",
+      "knowledge_base_ids": ["KB-BILLING"]
+    }
+  },
+  "ticket-002": {
+    "tool_calls": [
+      {"name": "get_customer_history", "arguments": {"customer_id": "customer-002"}},
+      {"name": "search_knowledge_base", "arguments": {"query": "error 500 access outage multiple browsers region Asia status เข้าไม่ได้ ระบบ หลายเครื่อง", "limit": 3}},
+      {"name": "check_service_status", "arguments": {"region": "Thailand"}}
+    ],
+    "decision": {
+      "ticket_id": "ticket-002",
+      "urgency": "critical",
+      "product": "unknown",
+      "issue_types": ["access_failure", "possible_service_incident"],
+      "sentiment": "frustrated",
+      "summary": "ลูกค้ารายงานว่าเข้าใช้งานไม่ได้และพบ error 500 หลายเครื่อง หลาย browser และเพื่อนร่วมงานได้รับผลกระทบ มี demo สำคัญช่วงบ่าย แต่หน้า status ระบุว่าปกติ",
+      "urgency_reason": "การสูญเสียการเข้าถึงระบบหลักของผู้ใช้หลายคนร่วมกับ demo ที่ใกล้ถึงเวลา ต้องให้ผู้รับผิดชอบ incident ตรวจสอบทันที ไม่ได้จัด critical จากแผน Enterprise เพียงอย่างเดียว",
+      "evidence": [
+        {"source": "customer_report", "reference": "message:1", "observation": "ลูกค้ารายงานว่าเข้าไม่ได้และเห็น error 500"},
+        {"source": "customer_report", "reference": "message:2", "observation": "ลูกค้าลองหลายเครื่องและสาม browser แล้ว เพื่อนร่วมงานก็เข้าไม่ได้ แต่ไม่ได้ยืนยันว่าทั้ง 45 คนได้รับผลกระทบ"},
+        {"source": "customer_report", "reference": "message:3", "observation": "มี demo กับลูกค้ารายใหญ่ช่วงบ่ายและมีผลกระทบทางธุรกิจ"},
+        {"source": "customer_history", "reference": "customer-002", "observation": "ข้อมูลจำลองระบุ Enterprise ในไทย 45 seats และเป็นลูกค้าแปดเดือน"},
+        {"source": "service_status", "reference": "Thailand", "observation": "ข้อมูลสถานะจำลองแสดง all systems operational แต่ไม่มี internal telemetry จึงไม่ยืนยันการใช้งานของลูกค้ารายนี้"},
+        {"source": "knowledge_base", "reference": "KB-ACCESS", "observation": "คู่มือจำลองระบุว่าหน้า status ปกติไม่ตัดความเป็นไปได้ของปัญหาเฉพาะ tenant หรือ region"}
+      ],
+      "suspected_causes": ["อาจเป็นปัญหาบริการที่กระทบ tenant หรือพื้นที่บางส่วน ยังไม่ยืนยันสาเหตุ"],
+      "unknowns": ["จำนวนผู้ใช้ที่ได้รับผลกระทบจริง", "ผลตรวจ internal telemetry", "สาเหตุของ error 500", "มีปัญหาเฉพาะ region Asia หรือไม่"],
+      "recommended_action": "escalate_to_human",
+      "destination": "incident_owner",
+      "next_steps": ["เสนอส่งต่อผู้รับผิดชอบ incident แบบเร่งด่วนพร้อมเวลา demo", "ตรวจ request IDs ช่วงเวลาและ tenant ที่เกี่ยวข้อง โดยไม่ชะลอการส่งต่อ", "ให้คนอนุมัติการดำเนินการและข้อความตอบลูกค้า"],
+      "draft_reply": "จากที่แจ้ง ปัญหาเกิดกับหลายเครื่อง หลาย browser และเพื่อนร่วมงานด้วย รวมถึงมี demo สำคัญช่วงบ่ายครับ แม้หน้า status แสดงว่าปกติ ข้อมูลนั้นยังไม่ยืนยันว่าการใช้งานของคุณปกติ ขั้นตอนที่เสนอคือส่งต่อผู้รับผิดชอบ incident แบบเร่งด่วนเพื่อตรวจสอบ โดยยังไม่สรุปสาเหตุหรือยืนยันว่าแก้ไขแล้วครับ",
+      "knowledge_base_ids": ["KB-ACCESS"]
+    }
+  },
+  "ticket-003": {
+    "tool_calls": [
+      {"name": "get_customer_history", "arguments": {"customer_id": "customer-003"}},
+      {"name": "search_knowledge_base", "arguments": {"query": "dark mode appearance System Default Mac light theme schedule", "limit": 3}}
+    ],
+    "decision": {
+      "ticket_id": "ticket-003",
+      "urgency": "medium",
+      "product": "unknown",
+      "issue_types": ["appearance_malfunction", "feature_request"],
+      "sentiment": "mixed",
+      "summary": "An initial dark-mode question evolved into a reported System Default theme mismatch on Mac, plus a separate request for scheduled switching.",
+      "urgency_reason": "There is an unresolved appearance malfunction, so this is more than a low-priority feature request; no core-access loss or immediate deadline is reported.",
+      "evidence": [
+        {"source": "customer_report", "reference": "message:2", "observation": "Customer already found Settings > Appearance and sees Light and System Default."},
+        {"source": "customer_report", "reference": "message:3", "observation": "Customer reports that System Default remains light despite macOS being dark."},
+        {"source": "customer_report", "reference": "message:4", "observation": "Customer separately requests scheduled theme switching."},
+        {"source": "customer_history", "reference": "customer-003", "observation": "Mock history shows Pro, five-month tenure, daily usage and no prior support tickets."},
+        {"source": "knowledge_base", "reference": "KB-APPEARANCE", "observation": "Mock appearance guidance routes persistent System Default mismatch to product support; scheduled switching is not supported in the fictional KB."}
+      ],
+      "suspected_causes": ["System appearance synchronization may be failing; platform/version information and reproduction are still needed."],
+      "unknowns": ["App version and platform details", "Whether the mismatch is reproducible by support", "Actual cause of the theme mismatch"],
+      "recommended_action": "route_to_specialist",
+      "destination": "product_support",
+      "next_steps": ["Propose product support review of the System Default mismatch", "Request app version and platform details without repeating the already-tried settings advice", "Record scheduling as a separate feature request without promising availability"],
+      "draft_reply": "Thanks for explaining what you already tried. Since System Default stays light while your Mac is in dark mode, the next proposed step is a product support review; your app version and whether you use the browser or desktop app would help reproduce it. Scheduled switching is not supported in the current sample documentation, so that is a separate feature request with no release date confirmed.",
+      "knowledge_base_ids": ["KB-APPEARANCE"]
+    }
+  }
+}
