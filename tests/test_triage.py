@@ -21,7 +21,9 @@ from pydantic import ValidationError
 from triage.agent import TriageAgent
 from triage.backends import BackendError, DemoBackend, OpenAIBackend, retry_after_seconds
 from triage.evaluate import evaluate
+from triage.config import Settings, load_settings
 from triage.models import Decision, Ticket
+from triage.language import reply_language
 from triage.tools import PROJECT_ROOT, ToolRegistry, tool_definitions
 
 
@@ -216,6 +218,22 @@ class AgentTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Decision.model_validate(decision)
 
+    def test_wrong_reply_language_is_corrected_after_live_regression(self):
+        wrong = copy.deepcopy(FIXTURES["ticket-001"]["decision"])
+        wrong["draft_reply"] = "ขอบคุณที่แจ้งปัญหาครับ ข้อมูลยังต้องตรวจสอบเพิ่มเติม"
+        correct = FIXTURES["ticket-001"]["decision"]
+        result, backend = self.run_sequence([tool_response(), decision_response(wrong), decision_response(correct)])
+        self.assertEqual(result["run_status"], "completed")
+        self.assertTrue(any("English" in note for note in result["validation_notes"]))
+        self.assertIn("draft_reply must be written in English", backend.payloads[-1]["instructions"])
+
+    def test_assignment_language_selection(self):
+        expected = ["en", "th", "en"]
+        for raw_ticket, language in zip(TICKETS, expected):
+            text = "\n".join(message["text"] for message in raw_ticket["messages"])
+            self.assertEqual(reply_language(text), language)
+        self.assertIsNone(reply_language("12345"))
+
 
 class TransportTests(unittest.TestCase):
     def test_missing_key_is_a_clear_error(self):
@@ -335,6 +353,7 @@ class CLITests(unittest.TestCase):
         backend = QuotaBackend()
         output = StringIO()
         with patch("sys.argv", ["triage", "--mode", "openai"]), \
+                patch("triage.__main__.load_settings", return_value=Settings(None, "test", "missing")), \
                 patch("triage.__main__.OpenAIBackend", return_value=backend), redirect_stdout(output):
             code = main()
         self.assertEqual(code, 2)
@@ -354,8 +373,9 @@ class CLITests(unittest.TestCase):
     def test_default_mode_does_not_silently_use_demo(self):
         environment = dict(os.environ)
         environment.pop("OPENAI_API_KEY", None)
-        completed = subprocess.run([sys.executable, "-m", "triage"], cwd=PROJECT_ROOT,
-                                   capture_output=True, encoding="utf-8", env=environment)
+        with tempfile.TemporaryDirectory() as directory:
+            completed = subprocess.run([sys.executable, "-m", "triage", "--env-file", str(Path(directory) / "missing.env")],
+                                       cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", env=environment)
         self.assertEqual(completed.returncode, 2)
         self.assertIn("OPENAI_API_KEY", completed.stderr)
 
@@ -392,9 +412,10 @@ class LauncherTests(unittest.TestCase):
     def test_missing_key_is_readable_and_preserves_exit_code(self):
         environment = dict(os.environ)
         environment.pop("OPENAI_API_KEY", None)
-        result = subprocess.run([self.pwsh, "-NoProfile", "-File", str(PROJECT_ROOT / "run.ps1"),
-                                 "-Mode", "openai", "-TicketId", "ticket-001"],
-                                cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", env=environment)
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run([self.pwsh, "-NoProfile", "-File", str(PROJECT_ROOT / "run.ps1"),
+                                     "-Mode", "openai", "-TicketId", "ticket-001", "-EnvFile", str(Path(directory) / "missing.env")],
+                                    cwd=PROJECT_ROOT, capture_output=True, encoding="utf-8", env=environment)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("OPENAI_API_KEY is not set", result.stdout)
         self.assertNotIn("NativeCommandError", result.stdout + result.stderr)
@@ -415,6 +436,82 @@ class LauncherTests(unittest.TestCase):
                                 capture_output=True, encoding="utf-8")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Thai output and encoding restoration verified", result.stdout)
+
+
+class ConfigTests(unittest.TestCase):
+    def test_utf8_bom_quotes_comments_and_export(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text('# Local settings\nexport OPENAI_API_KEY="fake-key-for-test" # comment\nOPENAI_MODEL=\'gpt-4.1-mini\'\n', encoding="utf-8-sig")
+            settings = load_settings(path, {})
+        self.assertEqual(settings.api_key, "fake-key-for-test")
+        self.assertEqual(settings.model, "gpt-4.1-mini")
+        self.assertEqual(settings.key_source, ".env")
+        self.assertNotIn("fake-key", repr(settings))
+
+    def test_process_key_takes_precedence_without_environment_mutation(self):
+        environment = {"OPENAI_API_KEY": "fake-process-key", "OPENAI_MODEL": "gpt-4o-mini"}
+        original = dict(environment)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text('OPENAI_API_KEY=fake-file-key\nPATH=ignored\n', encoding="utf-8")
+            settings = load_settings(path, environment)
+        self.assertEqual(settings.api_key, "fake-process-key")
+        self.assertEqual(settings.key_source, "environment")
+        self.assertEqual(settings.model, "gpt-4o-mini")
+        self.assertEqual(environment, original)
+
+    def test_missing_file_is_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            settings = load_settings(Path(directory) / "missing.env", {})
+        self.assertIsNone(settings.api_key)
+        self.assertEqual(settings.key_source, "missing")
+
+    def test_invalid_config_and_placeholders_do_not_expose_values(self):
+        invalid_cases = [
+            'OPENAI_API_KEY="fake-private-value',
+            'OPENAI_API_KEY=fake-private-value extra',
+            'OPENAI_API_KEY=replace_locally_do_not_commit',
+            'OPENAI_API_KEY=fake-private-value\nOPENAI_API_KEY=duplicate',
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            for content in invalid_cases:
+                path.write_text(content, encoding="utf-8")
+                with self.assertRaises(ValueError) as captured:
+                    load_settings(path, {})
+                self.assertNotIn("fake-private-value", str(captured.exception))
+
+    def test_check_config_reads_fake_file_without_api_request_or_key_output(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from triage.__main__ import main
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / ".env"
+            path.write_text('OPENAI_API_KEY=fake-key-for-config-test\n', encoding="utf-8")
+            output = StringIO()
+            with patch.dict(os.environ, {}, clear=True), \
+                    patch("sys.argv", ["triage", "--mode", "openai", "--env-file", str(path), "--check-config"]), \
+                    patch("urllib.request.urlopen") as request, redirect_stdout(output):
+                code = main()
+        self.assertEqual(code, 0)
+        request.assert_not_called()
+        self.assertIn("source: .env", output.getvalue())
+        self.assertNotIn("fake-key", output.getvalue())
+
+
+class EvaluationTests(unittest.TestCase):
+    def test_rubric_flags_wrong_language_and_unrelated_access_label(self):
+        raw_ticket = TICKETS[0]
+        result = TriageAgent(DemoBackend(raw_ticket)).run(Ticket.model_validate(raw_ticket))
+        result["mode"] = "openai"
+        result["decision"]["draft_reply"] = "ขอบคุณที่แจ้งปัญหาครับ"
+        result["decision"]["issue_types"].append("access_failure")
+        report = evaluate([result])
+        checks = report["results"][0]["checks"]
+        self.assertFalse(checks["reply_language"])
+        self.assertFalse(checks["issue_taxonomy"])
 
 
 if __name__ == "__main__":

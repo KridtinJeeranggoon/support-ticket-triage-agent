@@ -84,11 +84,11 @@ class OpenAIBackend:
     endpoint = "https://api.openai.com/v1/responses"
 
     def __init__(self, model: str | None = None, timeout: float = 30, retries: int = 2,
-                 max_retry_delay: float = 30):
+                 max_retry_delay: float = 30, api_key: str | None = None):
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-        self._key = os.getenv("OPENAI_API_KEY")
+        self._key = api_key if api_key is not None else os.getenv("OPENAI_API_KEY")
         if not self._key:
-            raise BackendError("OPENAI_API_KEY is not set. Use --mode demo for an offline walkthrough.")
+            raise BackendError("OPENAI_API_KEY is not set. Add it to .env or set it in the terminal. Use --mode demo for an offline walkthrough.")
         self.timeout = timeout
         self.retries = retries
         self.max_retry_delay = max_retry_delay

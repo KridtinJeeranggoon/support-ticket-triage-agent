@@ -16,4 +16,4 @@ Use held-out, expert-labeled English/Thai tickets, including multi-message escal
 
 ## Validation and limitations
 
-37 offline integration/failure tests and all three scripted sample checks passed. Demo decisions are prepared fixtures; they do not measure model intelligence. The real GPT adapter is implemented; a live attempt returned credit_balance_exhausted, so no successful model decision has been verified. Tools use mock data; automated remediation and approval execution are outside scope.
+45 offline integration/failure tests and all three scripted sample checks passed. A live GPT-4.1 mini run completed with two mock tools; review exposed reply-language and evidence-wording defects. Prompt revisions and a narrow English/Thai script guard are in place; a fresh full sample run is pending review. Demo fixtures do not measure model intelligence. Automated remediation and approval execution are outside scope.

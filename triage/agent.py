@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .backends import Backend, BackendError
+from .language import reply_language
 from .models import ApprovedPolicy, Decision, Ticket, strict_schema
 from .tools import PROJECT_ROOT, ToolRegistry, tool_definitions
 
@@ -20,6 +21,10 @@ def validate_references(decision: Decision, ticket: Ticket, trace: list[dict]) -
 
     if decision.ticket_id != ticket.ticket_id:
         raise DecisionError("Decision ticket_id does not match input.")
+    expected_language = reply_language("\n".join(message.text for message in ticket.messages))
+    if expected_language and reply_language(decision.draft_reply) != expected_language:
+        language_name = "English" if expected_language == "en" else "Thai"
+        raise DecisionError(f"For this ticket, draft_reply must be written in {language_name}.")
 
     history_ids, kb_ids, status_regions = set(), set(), set()
     for entry in trace:
@@ -75,11 +80,16 @@ class TriageAgent:
         conversation = [{"role": "user", "content": json.dumps(ticket.model_dump(), ensure_ascii=False)}]
         envelope = {"ticket_id": ticket.ticket_id, "mode": self.backend.mode,
                     "model": self.backend.model, "approval": ApprovedPolicy().model_dump()}
+        language = reply_language("\n".join(message.text for message in ticket.messages))
+        instructions = self.instructions
+        if language:
+            name = "English" if language == "en" else "Thai"
+            instructions += f"\nTICKET-SPECIFIC LANGUAGE: draft_reply must be written in {name}."
 
         try:
             for _ in range(self.max_rounds):
                 response = self.backend.respond({
-                    "instructions": self.instructions,
+                    "instructions": instructions,
                     "input": conversation,
                     "tools": tool_definitions(),
                     "tool_choice": "auto",

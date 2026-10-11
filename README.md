@@ -24,9 +24,21 @@ python3 -m venv .venv
 
 ## Real GPT mode
 
-The default mode is `openai`; missing credentials produce an error rather than silently switching to demo. No API key is included in this repository. `.env.example` documents environment variables; this application does **not** load `.env` automatically.
+The default mode is `openai`; missing credentials produce an error rather than silently switching to demo. No API key is included in this repository. The CLI automatically loads `.env` from the project root in OpenAI mode. Copy `.env.example` to `.env` and replace the key placeholder locally. Nonempty process environment variables take precedence over file values, so an existing terminal key is not silently replaced.
 
-PowerShell, without putting the key into the command history:
+The small configuration loader supports `NAME=value`, quoted values, comments and an optional `export` prefix for `OPENAI_API_KEY` and `OPENAI_MODEL` only. It does not execute shell code, interpolate variables, or change the parent terminal environment. The private `.env` file remains ignored by Git and excluded from the source ZIP.
+
+Check configuration without a chargeable API call or printing credentials:
+
+```powershell
+& .\run.ps1 -Mode openai -CheckConfig
+# Or with the project interpreter:
+.\.venv\Scripts\python.exe -m triage --mode openai --check-config
+```
+
+This checks that a key is configured, not whether the provider accepts it or the account has credits. `--env-file path/to/config.env` selects another configuration file if needed.
+
+Alternatively, set process variables in PowerShell without putting the key into command history:
 
 ```powershell
 $secureKey = Read-Host 'OpenAI API key' -AsSecureString
@@ -48,7 +60,7 @@ unset OPENAI_API_KEY
 
 The default GPT model supports function calling and structured output. Change `OPENAI_MODEL` to another compatible OpenAI GPT model if needed. The small REST adapter uses Python's standard library and the Responses endpoint directly; there is no additional SDK dependency. Each run has bounded model/tool calls, request timeouts, and at most two retries for transient API failures. Real GPT mode makes chargeable requests.
 
-**Verification status:** 37 offline integration and failure-handling tests pass. The candidate's latest live attempt returned HTTP 429 with `credit_balance_exhausted`, with no valid model decision. Updated diagnostics distinguish quota/billing failures from temporary throttling without printing raw response bodies. No successful live model run has been verified.
+**Verification status:** 45 offline integration and failure-handling tests pass. The first live GPT-4.1 mini run completed ticket-001 with real model-selected calls to the mock history and KB tools. Review identified an incorrect Thai draft for an English ticket and insufficient attribution of reported charges. The prompt was tightened, and an English/Thai reply-script check plus regression tests were added. A fresh three-ticket live run is pending review; initial completion alone did not establish answer quality.
 
 The Windows launcher temporarily aligns PowerShell native-output decoding with Python's UTF-8 output, then restores the original console encoding. A regression test starts with OEM code page 437 and verifies the actual Thai text inside PowerShell, not just the subprocess exit code. Result JSON files are written as UTF-8 independently of terminal display.
 
@@ -129,6 +141,8 @@ These are prototype policy choices, not a supplied company SLA. The highest-impa
 `Decision` separates evidence, suspected causes, unknowns, next steps and the customer reply draft. `auto_respond`, `route_to_specialist` and `escalate_to_human` are recommendations. Critical decisions must propose escalation; automatic answer proposals are restricted to low-impact supported answers without unresolved diagnostic questions. The user-selected approval policy means even an `auto_respond` recommendation is queued for approval. There is no approval/execution integration in this prototype.
 
 Application validation checks schemas, matching ticket/customer IDs and that cited sources were actually available. It does **not** prove that every generated sentence faithfully interprets its source. The prompt and human review address that residual risk; production evaluation must explicitly measure it. Root-cause diagnosis and automated remediation are outside this assignment's implemented scope.
+
+For the supplied English/Thai conversations, `triage/language.py` selects the predominant script, adds a ticket-specific reply instruction and rejects a reply with the wrong script. This is a narrow heuristic, not general language identification: it cannot distinguish English from other Latin-script languages and does not constrain ambiguous inputs. Prompt wording explicitly attributes unverified financial reports to the customer, separates missing Pro entitlement from core access failure, and avoids claims of executed handoffs or promised update times. These semantic requirements still need human review.
 
 If a model refuses, outputs invalid JSON, skips required tools, cites unavailable sources, or exhausts limits, the run either requests a bounded correction or returns `needs_human_review` with no valid decision. Nothing is executed.
 

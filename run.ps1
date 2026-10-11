@@ -1,6 +1,8 @@
 param(
     [ValidateSet('demo', 'openai')][string]$Mode = 'demo',
-    [string]$TicketId
+    [string]$TicketId,
+    [string]$EnvFile,
+    [switch]$CheckConfig
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +40,8 @@ if (-not $taskPython) {
 }
 $taskArguments = @('-m', 'triage', '--mode', $Mode, '--trace', '--output', (Join-Path $PSScriptRoot "runs\$Mode.json"))
 if ($TicketId) { $taskArguments += @('--ticket-id', $TicketId) }
+if ($EnvFile) { $taskArguments += @('--env-file', $EnvFile) }
+if ($CheckConfig) { $taskArguments += '--check-config' }
 Push-Location -LiteralPath $PSScriptRoot
 $taskSavedErrorPreference = $ErrorActionPreference
 $taskSavedNativePreference = $PSNativeCommandUseErrorActionPreference

@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from .agent import TriageAgent
 from .backends import BackendError, DemoBackend, OpenAIBackend
+from .config import load_settings
 from .models import Ticket
 from .tools import PROJECT_ROOT
 
@@ -20,11 +21,20 @@ def main() -> int:
     parser.add_argument("--ticket-id", help="Process only the selected ticket ID.")
     parser.add_argument("--output", type=Path, help="Optional JSON result file.")
     parser.add_argument("--trace", action="store_true", help="Show tools, retrieved IDs and validation notes.")
+    parser.add_argument("--env-file", type=Path, default=PROJECT_ROOT / ".env", help="Optional local config; process variables take precedence.")
+    parser.add_argument("--check-config", action="store_true", help="Check key presence without printing it or making an API request.")
     args = parser.parse_args()
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
     try:
+        if args.check_config:
+            if args.mode != "openai":
+                raise ValueError("--check-config requires --mode openai.")
+            settings = load_settings(args.env_file)
+            OpenAIBackend(model=settings.model, api_key=settings.api_key)
+            print(f"Configuration OK. API key is configured (source: {settings.key_source}). No API request sent.")
+            return 0
         raw_tickets = json.loads(args.tickets.read_text(encoding="utf-8"))
         if not isinstance(raw_tickets, list) or not raw_tickets:
             raise ValueError("Ticket file must be a nonempty JSON array.")
@@ -36,7 +46,10 @@ def main() -> int:
             if not tickets:
                 raise ValueError("The selected ticket ID was not found.")
         # Validate the file and configuration before any chargeable requests.
-        shared_backend = OpenAIBackend() if args.mode == "openai" else None
+        shared_backend = None
+        if args.mode == "openai":
+            settings = load_settings(args.env_file)
+            shared_backend = OpenAIBackend(model=settings.model, api_key=settings.api_key)
         results = []
         for index, ticket in enumerate(tickets):
             backend = shared_backend or DemoBackend(ticket.model_dump())

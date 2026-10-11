@@ -4,15 +4,20 @@ import argparse
 import json
 from pathlib import Path
 
+from .language import reply_language
+
 
 RUBRIC = {
     "ticket-001": {"urgencies": {"high", "critical"},
                    "actions": {"route_to_specialist", "escalate_to_human"},
-                   "issues": {"billing_dispute", "upgrade_entitlement_failure"}},
+                   "issues": {"billing_dispute", "upgrade_entitlement_failure"},
+                   "allowed_issues": {"billing_dispute", "upgrade_entitlement_failure"}, "language": "en"},
     "ticket-002": {"urgencies": {"critical"}, "actions": {"escalate_to_human"},
-                   "issues": {"access_failure"}},
+                   "issues": {"access_failure"},
+                   "allowed_issues": {"access_failure", "possible_service_incident"}, "language": "th"},
     "ticket-003": {"urgencies": {"medium"}, "actions": {"route_to_specialist"},
-                   "issues": {"appearance_malfunction", "feature_request"}},
+                   "issues": {"appearance_malfunction", "feature_request"},
+                   "allowed_issues": {"appearance_malfunction", "feature_request"}, "language": "en"},
 }
 
 
@@ -28,6 +33,8 @@ def evaluate(results: list[dict]) -> dict:
             "urgency": decision.get("urgency") in expected["urgencies"],
             "action": decision.get("recommended_action") in expected["actions"],
             "issues": expected["issues"].issubset(set(decision.get("issue_types", []))),
+            "issue_taxonomy": set(decision.get("issue_types", [])).issubset(expected["allowed_issues"]),
+            "reply_language": reply_language(decision.get("draft_reply", "")) == expected["language"],
             "required_tools": {"get_customer_history", "search_knowledge_base"}.issubset(successful_tools),
             "approval": result.get("approval", {}).get("execution_status") == "pending_human_approval"
                         and result.get("approval", {}).get("customer_reply_sent") is False,
