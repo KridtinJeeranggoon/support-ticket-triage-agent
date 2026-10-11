@@ -1,0 +1,337 @@
+[
+  {
+    "ticket_id": "ticket-001",
+    "mode": "openai",
+    "model": "gpt-4.1-mini",
+    "approval": {
+      "approval_required": true,
+      "execution_status": "pending_human_approval",
+      "customer_reply_sent": false
+    },
+    "run_status": "completed",
+    "decision": {
+      "ticket_id": "ticket-001",
+      "urgency": "high",
+      "product": "unknown",
+      "issue_types": [
+        "billing_dispute",
+        "upgrade_entitlement_failure"
+      ],
+      "sentiment": "angry",
+      "summary": "Customer reports multiple pending and captured charges from failed upgrade attempts but no activation of Pro access. Customer urgently needs access for presentation and demands charge reversal.",
+      "urgency_reason": "Repeated charges without refund and missing Pro upgrade access with an urgent presentation deadline in 2 hours.",
+      "evidence": [
+        {
+          "source": "customer_report",
+          "reference": "message:1",
+          "observation": "My payment failed when I tried to upgrade to Pro. Can you check what's wrong?"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:2",
+          "observation": "I tried again with a different card. Now I see TWO pending charges but my account still shows Free plan??"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:3",
+          "observation": "Okay this is getting ridiculous. Just checked my bank app - I have THREE charges of $29.99 now. None of them refunded. And I STILL don't have Pro access."
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:4",
+          "observation": "HELLO?? Is anyone there??? I need this fixed NOW. I have a presentation in 2 hours and I need the Pro export features. If these charges aren't reversed by end of day I'm disputing all of them with my bank."
+        }
+      ],
+      "suspected_causes": [
+        "Payment processing errors",
+        "Entitlement activation failure after payment",
+        "Duplicate payment attempts causing repeated charges"
+      ],
+      "unknowns": [
+        "Whether pending charges converted to captured payments",
+        "Internal payment provider transaction status",
+        "Reason for failure to activate Pro access post payment"
+      ],
+      "recommended_action": "route_to_specialist",
+      "destination": "billing department",
+      "next_steps": [
+        "Route to billing for urgent review of repeated charges and entitlement activation",
+        "Verify payment transaction IDs and authorization versus capture status",
+        "Confirm upgrade entitlement activation and resolve access issue"
+      ],
+      "draft_reply": "We understand your frustration regarding the repeated charges and lack of Pro access. The next step is an urgent review by our billing team to verify your payments and activate your Pro entitlement. We appreciate your patience while this is being investigated.",
+      "knowledge_base_ids": [
+        "KB-BILLING"
+      ]
+    },
+    "tool_trace": [
+      {
+        "name": "get_customer_history",
+        "arguments": "{\"customer_id\":\"customer-001\"}",
+        "result": {
+          "ok": true,
+          "source_type": "mock_customer_history",
+          "customer_id": "customer-001",
+          "customer": {
+            "plan": "Free",
+            "tenure_months": 4,
+            "previous_support_tickets": 0,
+            "upgrade_attempted": true
+          }
+        }
+      },
+      {
+        "name": "search_knowledge_base",
+        "arguments": "{\"query\":\"payment failed upgrade to Pro charges pending multiple no Pro access\",\"limit\":5}",
+        "result": {
+          "ok": true,
+          "query": "payment failed upgrade to Pro charges pending multiple no Pro access",
+          "score_type": "keyword_match_count_not_confidence",
+          "matches": [
+            {
+              "id": "KB-BILLING",
+              "title": "Failed upgrades and repeated payment attempts",
+              "content": "For this fictional product, billing specialists verify payment-provider transaction IDs and whether amounts are authorization holds or captured payments. A bank-app report alone does not establish captured charges. Check entitlement activation separately. Do not retry a payment, issue a refund, or promise a reversal deadline from this triage agent. Route disputed or repeated charges with an upcoming deadline to billing for urgent review.",
+              "match_score": 4,
+              "source_type": "mock_product_document"
+            }
+          ]
+        }
+      }
+    ],
+    "validation_notes": [],
+    "latency_seconds": 7.187
+  },
+  {
+    "ticket_id": "ticket-002",
+    "mode": "openai",
+    "model": "gpt-4.1-mini",
+    "approval": {
+      "approval_required": true,
+      "execution_status": "pending_human_approval",
+      "customer_reply_sent": false
+    },
+    "run_status": "completed",
+    "decision": {
+      "ticket_id": "ticket-002",
+      "urgency": "critical",
+      "product": "unknown",
+      "issue_types": [
+        "access_failure",
+        "possible_service_incident"
+      ],
+      "sentiment": "frustrated",
+      "summary": "ลูกค้าไม่สามารถเข้าใช้ระบบได้ ขึ้น error 500 และส่งผลกับเพื่อนร่วมงานจำนวนหนึ่ง มีเดโมสำคัญกับลูกค้ารายใหญ่ในบ่ายนี้ หากระบบไม่กลับมาจะกระทบดีลใหญ่",
+      "urgency_reason": "มีผลกระทบรุนแรงกับลูกค้าและเพื่อนร่วมงานหลายคน และมีเดโมสำคัญกับลูกค้ารายใหญ่ในวันนี้",
+      "evidence": [
+        {
+          "source": "customer_report",
+          "reference": "message:1",
+          "observation": "ระบบเข้าไม่ได้ครับ ขึ้น error 500"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:2",
+          "observation": "ลองหลายเครื่องแล้ว ทั้ง Chrome, Safari, Firefox ผลเหมือนกันหมด เพื่อนร่วมงานก็เข้าไม่ได้เหมือนกัน"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:3",
+          "observation": "ตอนนี้ลูกค้าโวยเข้ามาเยอะมาก เรามี demo กับลูกค้ารายใหญ่บ่ายนี้ ถ้าระบบไม่กลับมา deal นี้อาจจะหลุด"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:4",
+          "observation": "เช็ค status.company.com แล้ว บอกว่า all systems operational แต่เราใช้งานไม่ได้จริงๆ ช่วยเช็คให้หน่อยได้ไหมครับ region Asia มีปัญหาหรือเปล่า?"
+        },
+        {
+          "source": "knowledge_base",
+          "reference": "KB-ACCESS",
+          "observation": "An error 500 with multiple affected users and browsers should be assessed as a possible service incident. A green public status page does not disprove a tenant-specific or regional failure. Escalate broad access loss with a near-term business deadline to the incident owner."
+        }
+      ],
+      "suspected_causes": [
+        "ระบบมีปัญหาภายในหรือการเชื่อมต่อที่ผิดปกติใน region Asia",
+        "ข้อผิดพลาดภายในเซิร์ฟเวอร์ที่ทำให้เกิด error 500"
+      ],
+      "unknowns": [
+        "ยังไม่ทราบสาเหตุที่แท้จริงของ error 500",
+        "สถานะบริการสาธารณะไม่แสดงปัญหาแม้ลูกค้าใช้งานไม่ได้จริง"
+      ],
+      "recommended_action": "escalate_to_human",
+      "destination": "incident_response_team",
+      "next_steps": [
+        "แจ้งทีม incident response ตรวจสอบปัญหา error 500 และผลกระทบที่ทำให้ไม่สามารถเข้าใช้ระบบได้",
+        "ยืนยันผลกระทบกับลูกค้าและเตรียมตอบคำถามเกี่ยวกับดีลที่จะมีในวันนี้"
+      ],
+      "draft_reply": "จากข้อมูลที่แจ้ง ระบบของท่านยังคงไม่สามารถเข้าใช้งานได้เนื่องจาก error 500 ซึ่งส่งผลกระทบกับผู้ใช้หลายคนและมีผลกับการเตรียมงาน demo กับลูกค้ารายใหญ่ในวันนี้ ขณะนี้สถานะการให้บริการสาธารณะยังแสดงว่าระบบทำงานปกติ แต่ขั้นตอนถัดไปคือให้ทีมงานที่รับผิดชอบตรวจสอบปัญหาอย่างเร่งด่วนเพื่อหาสาเหตุและแก้ไขปัญหาให้เร็วที่สุด ขอความกรุณารอการติดต่อกลับจากทีมงาน ขอบคุณค่ะ",
+      "knowledge_base_ids": [
+        "KB-ACCESS"
+      ]
+    },
+    "tool_trace": [
+      {
+        "name": "get_customer_history",
+        "arguments": "{\"customer_id\":\"customer-002\"}",
+        "result": {
+          "ok": true,
+          "source_type": "mock_customer_history",
+          "customer_id": "customer-002",
+          "customer": {
+            "plan": "Enterprise",
+            "region": "Thailand",
+            "seats": 45,
+            "tenure_months": 8,
+            "first_critical_issue": true
+          }
+        }
+      },
+      {
+        "name": "check_service_status",
+        "arguments": "{\"region\":\"Asia\"}",
+        "result": {
+          "ok": true,
+          "source_type": "mock_status_snapshot",
+          "region": "Asia",
+          "status": {
+            "public_status": "all_systems_operational",
+            "confirmed_incidents": [],
+            "internal_telemetry_available": false,
+            "scope": "Mock public status snapshot only; does not establish regional health."
+          }
+        }
+      },
+      {
+        "name": "search_knowledge_base",
+        "arguments": "{\"query\":\"error 500 เข้าใช้งานไม่ได้ region Asia\",\"limit\":5}",
+        "result": {
+          "ok": true,
+          "query": "error 500 เข้าใช้งานไม่ได้ region Asia",
+          "score_type": "keyword_match_count_not_confidence",
+          "matches": [
+            {
+              "id": "KB-ACCESS",
+              "title": "Multi-user access failure and error 500",
+              "content": "An error 500 with multiple affected users and browsers should be assessed as a possible service incident. A green public status page does not disprove a tenant-specific or regional failure. Escalate broad access loss with a near-term business deadline to the incident owner; gather time range, affected tenant and request IDs if available without delaying escalation. Do not infer a regional outage or root cause without correlated telemetry. Seat count is not an affected-user count.",
+              "match_score": 3,
+              "source_type": "mock_product_document"
+            }
+          ]
+        }
+      }
+    ],
+    "validation_notes": [
+      "A successful knowledge base search is required."
+    ],
+    "latency_seconds": 14.563
+  },
+  {
+    "ticket_id": "ticket-003",
+    "mode": "openai",
+    "model": "gpt-4.1-mini",
+    "approval": {
+      "approval_required": true,
+      "execution_status": "pending_human_approval",
+      "customer_reply_sent": false
+    },
+    "run_status": "completed",
+    "decision": {
+      "ticket_id": "ticket-003",
+      "urgency": "medium",
+      "product": "unknown",
+      "issue_types": [
+        "appearance_malfunction",
+        "feature_request",
+        "how_to"
+      ],
+      "sentiment": "neutral",
+      "summary": "Customer on Pro plan cannot see a separate dark mode toggle but has tried Light and System Default options in Settings > Appearance. When setting System Default with Mac in dark mode, the app still shows a light theme. Customer also asks about scheduled dark mode switching.",
+      "urgency_reason": "Unresolved appearance issue with the theme not switching to dark as expected despite System Default mode, plus a feature request for scheduling.",
+      "evidence": [
+        {
+          "source": "customer_report",
+          "reference": "message:1",
+          "observation": "Hey, just wondering if you support dark mode? No rush 😊"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:2",
+          "observation": "Thanks for the reply! Oh nice, so it's in Settings > Appearance. Found it! But hmm I'm on Pro plan and I only see 'Light' and 'System Default' options. No dark mode toggle?"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:3",
+          "observation": "Okay so I switched to 'System Default' and my Mac is set to dark mode, but your app still shows light theme. Is this a bug or am I missing something?"
+        },
+        {
+          "source": "customer_report",
+          "reference": "message:4",
+          "observation": "Also random question while I have you - is there a way to schedule dark mode? Like auto-switch at 6pm? Some apps have that. Would be cool if you guys added it 👀"
+        },
+        {
+          "source": "knowledge_base",
+          "reference": "KB-APPEARANCE",
+          "observation": "Light and System Default are valid appearance options; no separate Dark toggle is promised. System Default staying light on dark OS should be reported to product support. Scheduled theme switching is not supported and treated as a feature request."
+        }
+      ],
+      "suspected_causes": [
+        "App may lack explicit dark toggle by design despite Pro plan",
+        "Potential app bug or platform compatibility issue causing System Default not to switch theme as per OS dark mode"
+      ],
+      "unknowns": [
+        "If the app version or platform is causing the dark mode not to activate under System Default",
+        "The timeline or feasibility for adding scheduled dark mode switching"
+      ],
+      "recommended_action": "route_to_specialist",
+      "destination": "product_specialist_team",
+      "next_steps": [
+        "Have product specialists investigate why System Default does not switch theme on Mac as expected",
+        "Document app version and reproduction steps from customer for further analysis",
+        "Consider customer feature request for scheduled dark mode switching"
+      ],
+      "draft_reply": "Thank you for sharing details about the dark mode settings you see. The app currently supports Light and System Default modes but does not have a separate dark toggle. If System Default remains light when your Mac is set to dark mode, this may be a bug or platform-specific issue. We will have product specialists investigate this. Scheduled dark mode switching is not currently supported but your suggestion is noted for future consideration. Please ensure your app is up to date and feel free to share any further details about your setup.",
+      "knowledge_base_ids": [
+        "KB-APPEARANCE"
+      ]
+    },
+    "tool_trace": [
+      {
+        "name": "get_customer_history",
+        "arguments": "{\"customer_id\":\"customer-003\"}",
+        "result": {
+          "ok": true,
+          "source_type": "mock_customer_history",
+          "customer_id": "customer-003",
+          "customer": {
+            "plan": "Pro",
+            "tenure_months": 5,
+            "daily_logins": true,
+            "previous_support_tickets": 0
+          }
+        }
+      },
+      {
+        "name": "search_knowledge_base",
+        "arguments": "{\"query\":\"dark mode support toggle Pro plan Mac System Default schedule auto-switch\",\"limit\":5}",
+        "result": {
+          "ok": true,
+          "query": "dark mode support toggle Pro plan Mac System Default schedule auto-switch",
+          "score_type": "keyword_match_count_not_confidence",
+          "matches": [
+            {
+              "id": "KB-APPEARANCE",
+              "title": "Appearance troubleshooting and dark mode scheduling",
+              "content": "For this fictional product, Light and System Default are valid appearance options; no separate Dark toggle is promised. If System Default stays light while the operating system is dark, record app version, platform and reproduction steps for the product support specialist. Do not repeat Settings > Appearance advice when the customer already tried it. Scheduled theme switching is not supported in this mock knowledge base; treat it as a separate feature request, with no delivery-date promise.",
+              "match_score": 3,
+              "source_type": "mock_product_document"
+            }
+          ]
+        }
+      }
+    ],
+    "validation_notes": [
+      "A successful knowledge base search is required."
+    ],
+    "latency_seconds": 11.39
+  }
+]

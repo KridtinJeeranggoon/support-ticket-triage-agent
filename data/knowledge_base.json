@@ -2,21 +2,21 @@
   {
     "id": "KB-BILLING",
     "title": "Failed upgrades and repeated payment attempts",
-    "keywords": ["payment", "billing", "charges", "pending", "upgrade", "pro", "refund", "card", "เงิน", "ชำระ"],
+    "keywords": ["payment", "billing", "charges", "pending", "upgrade", "refund", "card", "เงิน", "ชำระ"],
     "content": "For this fictional product, billing specialists verify payment-provider transaction IDs and whether amounts are authorization holds or captured payments. A bank-app report alone does not establish captured charges. Check entitlement activation separately. Do not retry a payment, issue a refund, or promise a reversal deadline from this triage agent. Route disputed or repeated charges with an upcoming deadline to billing for urgent review.",
     "source_type": "mock_product_document"
   },
   {
     "id": "KB-ACCESS",
     "title": "Multi-user access failure and error 500",
-    "keywords": ["access", "outage", "500", "region", "asia", "enterprise", "status", "เข้าไม่ได้", "ระบบ", "หลาย", "เครื่อง", "ใช้งาน"],
+    "keywords": ["cannot access", "can't access", "unable to access", "login", "outage", "500", "region", "asia", "status page", "เข้าไม่ได้", "หลายเครื่อง"],
     "content": "An error 500 with multiple affected users and browsers should be assessed as a possible service incident. A green public status page does not disprove a tenant-specific or regional failure. Escalate broad access loss with a near-term business deadline to the incident owner; gather time range, affected tenant and request IDs if available without delaying escalation. Do not infer a regional outage or root cause without correlated telemetry. Seat count is not an affected-user count.",
     "source_type": "mock_product_document"
   },
   {
     "id": "KB-APPEARANCE",
     "title": "Appearance troubleshooting and dark mode scheduling",
-    "keywords": ["dark", "theme", "appearance", "schedule", "mac", "system", "light", "โหมด", "ธีม"],
+    "keywords": ["dark", "theme", "appearance", "schedule", "mac", "light", "โหมด", "ธีม"],
     "content": "For this fictional product, Light and System Default are valid appearance options; no separate Dark toggle is promised. If System Default stays light while the operating system is dark, record app version, platform and reproduction steps for the product support specialist. Do not repeat Settings > Appearance advice when the customer already tried it. Scheduled theme switching is not supported in this mock knowledge base; treat it as a separate feature request, with no delivery-date promise.",
     "source_type": "mock_product_document"
   },

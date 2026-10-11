@@ -60,7 +60,7 @@ unset OPENAI_API_KEY
 
 The default GPT model supports function calling and structured output. Change `OPENAI_MODEL` to another compatible OpenAI GPT model if needed. The small REST adapter uses Python's standard library and the Responses endpoint directly; there is no additional SDK dependency. Each run has bounded model/tool calls, request timeouts, and at most two retries for transient API failures. Real GPT mode makes chargeable requests.
 
-**Verification status:** 45 offline integration and failure-handling tests pass. The first live GPT-4.1 mini run completed ticket-001 with real model-selected calls to the mock history and KB tools. Review identified an incorrect Thai draft for an English ticket and insufficient attribution of reported charges. The prompt was tightened, and an English/Thai reply-script check plus regression tests were added. A fresh three-ticket live run is pending review; initial completion alone did not establish answer quality.
+**Verification status:** 54 offline integration and failure-handling tests pass. The latest live GPT-4.1 mini run completed all three tickets and passed the small automated rubric using actual model-selected calls to mock tools. Manual review still found an unsupported "captured" payment claim and implied investigation/commitment wording. This is evidence of residual semantic defects, not production readiness. See `docs/live_review.md` for the original findings and separately proposed reviewer edits; `example_results/openai.json` preserves the raw output.
 
 The Windows launcher temporarily aligns PowerShell native-output decoding with Python's UTF-8 output, then restores the original console encoding. A regression test starts with OEM code page 437 and verifies the actual Thai text inside PowerShell, not just the subprocess exit code. Result JSON files are written as UTF-8 independently of terminal display.
 
@@ -131,7 +131,7 @@ Retrieval uses deterministic keyword matching over four short documents, includi
 
 ## Decision policy
 
-- `critical`: severe/broad core access loss requiring immediate incident review.
+- `critical`: broad core access loss or another severe ongoing impact requiring immediate accountable human review.
 - `high`: urgent individual impact, repeated/disputed payments, missing paid access or a near-term deadline.
 - `medium`: unresolved limited-impact malfunction without an immediate deadline.
 - `low`: informational questions or feature requests without an unresolved malfunction.
@@ -140,9 +140,13 @@ These are prototype policy choices, not a supplied company SLA. The highest-impa
 
 `Decision` separates evidence, suspected causes, unknowns, next steps and the customer reply draft. `auto_respond`, `route_to_specialist` and `escalate_to_human` are recommendations. Critical decisions must propose escalation; automatic answer proposals are restricted to low-impact supported answers without unresolved diagnostic questions. The user-selected approval policy means even an `auto_respond` recommendation is queued for approval. There is no approval/execution integration in this prototype.
 
-Application validation checks schemas, matching ticket/customer IDs and that cited sources were actually available. It does **not** prove that every generated sentence faithfully interprets its source. The prompt and human review address that residual risk; production evaluation must explicitly measure it. Root-cause diagnosis and automated remediation are outside this assignment's implemented scope.
+`triage/evidence.py` builds the output schema for each model round from the ticket and successful tool results. Evidence source/reference pairs are constrained together: message evidence uses an exact quote of that message, while KB/history/status references can only use returned IDs. Application validation repeats these checks, including exact quotes when long inputs require quote enums to be omitted from the API schema. A successful KB search may return no matches; it establishes that a lookup occurred, not that an answer is supported.
+
+Application validation checks matching ticket/customer IDs and rejects low urgency for unresolved malfunctions under this prototype policy. These checks do **not** prove that every summary, hypothesis or draft sentence faithfully interprets its source. Root-cause diagnosis and automated remediation are outside this assignment's implemented scope.
 
 For the supplied English/Thai conversations, `triage/language.py` selects the predominant script, adds a ticket-specific reply instruction and rejects a reply with the wrong script. This is a narrow heuristic, not general language identification: it cannot distinguish English from other Latin-script languages and does not constrain ambiguous inputs. Prompt wording explicitly attributes unverified financial reports to the customer, separates missing Pro entitlement from core access failure, and avoids claims of executed handoffs or promised update times. These semantic requirements still need human review.
+
+`triage/reply.py` rejects specific known phrases such as "We are escalating", "We have sent" and "เราได้ส่งเรื่อง" and unsupported "response soon/shortly" wording. This is a narrow pattern guard, not a semantic truth checker: unmatched paraphrases, investigation claims, financial assertions and other commitments may still slip through. A correction uses the existing tool results within the same bounded loop. Human approval and production groundedness evaluation remain necessary.
 
 If a model refuses, outputs invalid JSON, skips required tools, cites unavailable sources, or exhausts limits, the run either requests a bounded correction or returns `needs_human_review` with no valid decision. Nothing is executed.
 
@@ -155,7 +159,7 @@ If a model refuses, outputs invalid JSON, skips required tools, cites unavailabl
 .\.venv\Scripts\python.exe -m triage.evaluate runs/openai.json
 ```
 
-The offline tests cover the full function-call loop, customer isolation, Thai lookup, missing data, invented citations, required tool use, schema failures, refusal/incomplete output, loop limits, human approval and REST error handling. The three-case rubric permits high or critical for the billing case but requires human/specialist involvement; the access case must be critical; the appearance case must retain the malfunction and feature request. Exact issue labels are a prototype taxonomy and may need semantic review when evaluating real model outputs.
+The offline tests cover the full function-call loop, customer isolation, Thai lookup, missing data, source/reference binding, exact customer quotes, reply-language/action regressions, required tool use, schema failures, refusal/incomplete output, loop limits, human approval and REST error handling. The three-case rubric permits high or critical for the billing case but requires human/specialist involvement; the access case must be critical; the appearance case must be medium and retain the malfunction and feature request. An additional `how_to` label is allowed for its appearance-option questions. The rubric also checks the narrow reply guard; it does not establish full semantic correctness.
 
 Issue types use a fixed prototype taxonomy in the output schema, with `other` for unsupported categories. A valid taxonomy value can still be semantically wrong; classification accuracy requires reference labels and human review.
 
@@ -172,6 +176,7 @@ Local result files contain support content and tool observations. Use synthetic 
 5. `triage/backends.py`: real API adapter and offline demo.
 6. `triage/__main__.py`: console entry point.
 7. `tests/test_triage.py`: evidence of failure handling.
+8. `triage/evidence.py`, `triage/language.py`, `triage/reply.py`: source binding and narrow reply checks.
 
 The separate Thai learning guide is for walkthroughs; it is not the one-page submission brief. `submission/architecture_brief.pdf` is the one-page write-up. `example_results/demo.json` is explicitly labeled demo output. `docs/verification.md` records the actual validation performed.
 

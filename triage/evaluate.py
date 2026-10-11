@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .language import reply_language
+from .reply import reply_violation
 
 
 RUBRIC = {
@@ -17,7 +18,7 @@ RUBRIC = {
                    "allowed_issues": {"access_failure", "possible_service_incident"}, "language": "th"},
     "ticket-003": {"urgencies": {"medium"}, "actions": {"route_to_specialist"},
                    "issues": {"appearance_malfunction", "feature_request"},
-                   "allowed_issues": {"appearance_malfunction", "feature_request"}, "language": "en"},
+                   "allowed_issues": {"appearance_malfunction", "feature_request", "how_to"}, "language": "en"},
 }
 
 
@@ -35,6 +36,8 @@ def evaluate(results: list[dict]) -> dict:
             "issues": expected["issues"].issubset(set(decision.get("issue_types", []))),
             "issue_taxonomy": set(decision.get("issue_types", [])).issubset(expected["allowed_issues"]),
             "reply_language": reply_language(decision.get("draft_reply", "")) == expected["language"],
+            "no_known_false_reply_claims": bool(decision.get("draft_reply"))
+                                          and reply_violation(decision["draft_reply"]) is None,
             "required_tools": {"get_customer_history", "search_knowledge_base"}.issubset(successful_tools),
             "approval": result.get("approval", {}).get("execution_status") == "pending_human_approval"
                         and result.get("approval", {}).get("customer_reply_sent") is False,

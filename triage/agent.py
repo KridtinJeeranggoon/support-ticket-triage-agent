@@ -7,8 +7,10 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from .backends import Backend, BackendError
+from .evidence import available_references, decision_schema
 from .language import reply_language
-from .models import ApprovedPolicy, Decision, Ticket, strict_schema
+from .models import ApprovedPolicy, Decision, Ticket
+from .reply import reply_violation
 from .tools import PROJECT_ROOT, ToolRegistry, tool_definitions
 
 
@@ -25,35 +27,30 @@ def validate_references(decision: Decision, ticket: Ticket, trace: list[dict]) -
     if expected_language and reply_language(decision.draft_reply) != expected_language:
         language_name = "English" if expected_language == "en" else "Thai"
         raise DecisionError(f"For this ticket, draft_reply must be written in {language_name}.")
+    violation = reply_violation(decision.draft_reply)
+    if violation:
+        raise DecisionError(violation)
 
-    history_ids, kb_ids, status_regions = set(), set(), set()
-    for entry in trace:
-        result = entry["result"]
-        if not result.get("ok"):
-            continue
-        if entry["name"] == "get_customer_history":
-            history_ids.add(result["customer_id"])
-        elif entry["name"] == "search_knowledge_base":
-            kb_ids.update(item["id"] for item in result["matches"])
-        elif entry["name"] == "check_service_status":
-            status_regions.add(result["region"])
-
-    if ticket.customer_id not in history_ids:
+    allowed = available_references(ticket, trace)
+    kb_ids = set(allowed["knowledge_base"])
+    if ticket.customer_id not in allowed["customer_history"]:
         raise DecisionError("A successful customer history lookup is required.")
     if not any(entry["name"] == "search_knowledge_base" and entry["result"].get("ok") for entry in trace):
         raise DecisionError("A successful knowledge base search is required.")
     if not set(decision.knowledge_base_ids).issubset(kb_ids):
         raise DecisionError("Decision cites a document that was not retrieved.")
 
-    allowed = {
-        "customer_report": {f"message:{index}" for index in range(1, len(ticket.messages) + 1)},
-        "customer_history": history_ids,
-        "knowledge_base": kb_ids,
-        "service_status": status_regions,
-    }
     for item in decision.evidence:
         if item.reference not in allowed[item.source]:
-            raise DecisionError("Evidence references a source that was not available.")
+            choices = json.dumps(allowed[item.source], ensure_ascii=False)
+            raise DecisionError(f"Evidence source '{item.source}' must use one of these exact references: {choices}.")
+        if item.source == "customer_report":
+            index = int(item.reference.split(":")[1]) - 1
+            if item.observation != ticket.messages[index].text:
+                raise DecisionError("Customer-report observations must quote the referenced message exactly, without inferring captured payments or other facts.")
+    malfunctions = {"appearance_malfunction", "access_failure", "upgrade_entitlement_failure", "possible_service_incident"}
+    if decision.urgency == "low" and malfunctions.intersection(decision.issue_types):
+        raise DecisionError("An unresolved malfunction requires at least medium urgency under this prototype policy; low is for informational questions or feature requests only.")
     if decision.urgency == "critical" and decision.recommended_action != "escalate_to_human":
         raise DecisionError("Critical tickets require an urgent human escalation proposal.")
     if decision.recommended_action == "auto_respond" and (not kb_ids or not decision.knowledge_base_ids):
@@ -88,8 +85,9 @@ class TriageAgent:
 
         try:
             for _ in range(self.max_rounds):
+                references = json.dumps(available_references(ticket, trace), ensure_ascii=False)
                 response = self.backend.respond({
-                    "instructions": instructions,
+                    "instructions": instructions + "\nAVAILABLE EVIDENCE REFERENCES: " + references,
                     "input": conversation,
                     "tools": tool_definitions(),
                     "tool_choice": "auto",
@@ -97,7 +95,7 @@ class TriageAgent:
                     "store": False,
                     "max_output_tokens": 4000,
                     "text": {"format": {"type": "json_schema", "name": "triage_decision",
-                                        "strict": True, "schema": strict_schema(Decision)}},
+                                        "strict": True, "schema": decision_schema(ticket, trace)}},
                 })
                 if response.get("status") != "completed":
                     raise BackendError("Model response was incomplete or failed.")
@@ -140,7 +138,8 @@ class TriageAgent:
                     detail = str(exc) if isinstance(exc, DecisionError) else "Decision JSON does not match the contract."
                     corrections.append(detail)
                     conversation.append({"role": "user", "content": "Application validation failed: " + detail +
-                                         " Use the permitted tools and produce a corrected decision."})
+                                         " Correct the decision using the available evidence references. "
+                                         "Do not repeat successful tool calls merely to fix citation formatting."})
                     continue
 
                 return {**envelope, "run_status": "completed", "decision": decision.model_dump(),

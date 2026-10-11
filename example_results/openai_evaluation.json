@@ -1,0 +1,55 @@
+{
+  "mode": "model_sample_checks",
+  "passed_tickets": 3,
+  "total_tickets": 3,
+  "results": [
+    {
+      "ticket_id": "ticket-001",
+      "checks": {
+        "completed": true,
+        "urgency": true,
+        "action": true,
+        "issues": true,
+        "issue_taxonomy": true,
+        "reply_language": true,
+        "no_known_false_reply_claims": true,
+        "required_tools": true,
+        "approval": true
+      },
+      "passed": true
+    },
+    {
+      "ticket_id": "ticket-002",
+      "checks": {
+        "completed": true,
+        "urgency": true,
+        "action": true,
+        "issues": true,
+        "issue_taxonomy": true,
+        "reply_language": true,
+        "no_known_false_reply_claims": true,
+        "required_tools": true,
+        "approval": true,
+        "status_lookup": true,
+        "thai_reply": true
+      },
+      "passed": true
+    },
+    {
+      "ticket_id": "ticket-003",
+      "checks": {
+        "completed": true,
+        "urgency": true,
+        "action": true,
+        "issues": true,
+        "issue_taxonomy": true,
+        "reply_language": true,
+        "no_known_false_reply_claims": true,
+        "required_tools": true,
+        "approval": true
+      },
+      "passed": true
+    }
+  ],
+  "limitation": "Three sample cases only. Exact issue labels are a prototype taxonomy; semantic review and groundedness checks still require a human. Demo checks do not measure LLM quality."
+}

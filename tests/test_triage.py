@@ -24,6 +24,8 @@ from triage.evaluate import evaluate
 from triage.config import Settings, load_settings
 from triage.models import Decision, Ticket
 from triage.language import reply_language
+from triage.evidence import available_references, decision_schema
+from triage.reply import reply_violation
 from triage.tools import PROJECT_ROOT, ToolRegistry, tool_definitions
 
 
@@ -84,6 +86,16 @@ class ToolTests(unittest.TestCase):
     def test_latin_words_do_not_match_substrings(self):
         result = self.tools.call("search_knowledge_base", '{"query":"professional","limit":2}')
         self.assertEqual(result["matches"], [])
+
+    def test_live_queries_do_not_retrieve_other_issue_categories_from_generic_words(self):
+        cases = [
+            ("payment failed upgrade to Pro multiple charges no access", "KB-BILLING"),
+            ("error 500 system access failure Asia region", "KB-ACCESS"),
+            ("Pro dark mode appearance System Default schedule", "KB-APPEARANCE"),
+        ]
+        for query, expected in cases:
+            result = self.tools.call("search_knowledge_base", json.dumps({"query": query, "limit": 5}))
+            self.assertEqual([item["id"] for item in result["matches"]], [expected])
 
     def test_missing_sources_do_not_mean_healthy(self):
         result = self.tools.call("check_service_status", '{"region":"unknown-region"}')
@@ -164,10 +176,27 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(result["run_status"], "needs_human_review")
 
     def test_supported_low_answer_can_be_proposed_but_not_sent(self):
+        self.ticket = Ticket.model_validate({"ticket_id": "faq-001", "customer_id": "customer-001",
+            "messages": [{"time_label": "just now", "text": "Where is the export menu?"}]})
+        tools = {"status": "completed", "output": [
+            {"type": "function_call", "call_id": "history", "name": "get_customer_history",
+             "arguments": '{"customer_id":"customer-001"}'},
+            {"type": "function_call", "call_id": "kb", "name": "search_knowledge_base",
+             "arguments": '{"query":"export menu","limit":2}'},
+        ]}
         decision = copy.deepcopy(FIXTURES["ticket-001"]["decision"])
+        decision["ticket_id"] = "faq-001"
         decision.update(urgency="low", issue_types=["how_to"], recommended_action="auto_respond",
                         suspected_causes=[], unknowns=[], destination="customer_reply_review")
-        result, _ = self.run_sequence([tool_response(), decision_response(decision)])
+        decision["evidence"] = [{"source": "customer_report", "reference": "message:1",
+                                 "observation": "Where is the export menu?"},
+                                {"source": "knowledge_base", "reference": "KB-EXPORT",
+                                 "observation": "Mock instructions place the menu at File > Export for eligible users."}]
+        decision["knowledge_base_ids"] = ["KB-EXPORT"]
+        decision["summary"] = "Customer asks where to find the export menu."
+        decision["urgency_reason"] = "Informational request without a reported malfunction."
+        decision["draft_reply"] = "Eligible users can find the menu at File > Export."
+        result, _ = self.run_sequence([tools, decision_response(decision)])
         self.assertEqual(result["run_status"], "completed")
         self.assertEqual(result["decision"]["recommended_action"], "auto_respond")
         self.assertEqual(result["approval"]["execution_status"], "pending_human_approval")
@@ -233,6 +262,47 @@ class AgentTests(unittest.TestCase):
             text = "\n".join(message["text"] for message in raw_ticket["messages"])
             self.assertEqual(reply_language(text), language)
         self.assertIsNone(reply_language("12345"))
+
+    def test_customer_evidence_cannot_infer_captured_payment(self):
+        wrong = copy.deepcopy(FIXTURES["ticket-001"]["decision"])
+        wrong["evidence"][0]["observation"] = "Three payments were captured."
+        result, _ = self.run_sequence([tool_response(), decision_response(wrong)], max_rounds=2)
+        self.assertEqual(result["run_status"], "needs_human_review")
+        self.assertTrue(any("quote" in note for note in result["validation_notes"]))
+
+    def test_unresolved_malfunction_cannot_be_low(self):
+        self.ticket = Ticket.model_validate(TICKETS[2])
+        wrong = copy.deepcopy(FIXTURES["ticket-003"]["decision"])
+        wrong["urgency"] = "low"
+        result, _ = self.run_sequence([tool_response("ticket-003"), decision_response(wrong)], max_rounds=2)
+        self.assertEqual(result["run_status"], "needs_human_review")
+        self.assertTrue(any("medium" in note for note in result["validation_notes"]))
+
+    def test_status_reference_feedback_identifies_available_region(self):
+        self.ticket = Ticket.model_validate(TICKETS[1])
+        tools = tool_response("ticket-002")
+        tools["output"][-1]["arguments"] = '{"region":"Asia"}'
+        wrong = copy.deepcopy(FIXTURES["ticket-002"]["decision"])
+        for evidence in wrong["evidence"]:
+            if evidence["source"] == "service_status":
+                evidence["reference"] = "status.company.com"
+        correct = copy.deepcopy(wrong)
+        for evidence in correct["evidence"]:
+            if evidence["source"] == "service_status":
+                evidence["reference"] = "Asia"
+        result, _ = self.run_sequence([tools, decision_response(wrong), decision_response(correct)])
+        self.assertEqual(result["run_status"], "completed")
+        self.assertEqual(len(result["tool_trace"]), 3)
+        self.assertTrue(any("service_status" in note and "Asia" in note for note in result["validation_notes"]))
+
+    def test_false_handoff_reply_is_revised_without_repeating_tools(self):
+        wrong = copy.deepcopy(FIXTURES["ticket-001"]["decision"])
+        wrong["draft_reply"] = "We are escalating your case for investigation."
+        result, _ = self.run_sequence([tool_response(), decision_response(wrong),
+                                     decision_response(FIXTURES["ticket-001"]["decision"])])
+        self.assertEqual(result["run_status"], "completed")
+        self.assertEqual(len(result["tool_trace"]), 2)
+        self.assertTrue(any("execution tools" in note for note in result["validation_notes"]))
 
 
 class TransportTests(unittest.TestCase):
@@ -502,6 +572,51 @@ class ConfigTests(unittest.TestCase):
 
 
 class EvaluationTests(unittest.TestCase):
+    def test_rubric_rejects_completed_run_with_false_handoff_claim(self):
+        raw_ticket = TICKETS[0]
+        result = TriageAgent(DemoBackend(raw_ticket)).run(Ticket.model_validate(raw_ticket))
+        result["mode"] = "openai"
+        result["decision"]["draft_reply"] = "We are escalating your case for investigation."
+        report = evaluate([result])
+        checks = report["results"][0]["checks"]
+        self.assertTrue(checks["completed"])
+        self.assertTrue(checks["required_tools"])
+        self.assertFalse(checks["no_known_false_reply_claims"])
+        self.assertFalse(report["results"][0]["passed"])
+
+    def test_known_false_claims_are_rejected_but_proposals_are_allowed(self):
+        for text in ("We have escalated your case.", "We are routing this to support.",
+                     "เราได้ส่งเรื่องนี้ไปยังทีมแล้ว", "We will send a response shortly."):
+            self.assertIsNotNone(reply_violation(text))
+        for text in ("The next step is a specialist review.", "We have not escalated your case.",
+                     "ขั้นตอนถัดไปคือให้ทีมที่รับผิดชอบตรวจสอบครับ"):
+            self.assertIsNone(reply_violation(text))
+
+    def test_dynamic_schema_binds_customer_quote_and_available_sources(self):
+        ticket = Ticket.model_validate(TICKETS[1])
+        initial = decision_schema(ticket, [])
+        choices = initial["$defs"]["Evidence"]["anyOf"]
+        self.assertEqual(len(choices), 4)
+        for i, choice in enumerate(choices):
+            properties = choice["properties"]
+            self.assertEqual(properties["source"]["enum"], ["customer_report"])
+            self.assertEqual(properties["reference"]["enum"], [f"message:{i + 1}"])
+            self.assertEqual(properties["observation"]["enum"], [ticket.messages[i].text])
+        registry = ToolRegistry(ticket.customer_id)
+        trace = [{"name": "check_service_status", "result": registry.call("check_service_status", '{"region":"Asia"}')}]
+        schema = decision_schema(ticket, trace)
+        choices = schema["$defs"]["Evidence"]["anyOf"]
+        status = [choice for choice in choices if choice["properties"]["source"]["enum"] == ["service_status"]]
+        self.assertEqual(status[0]["properties"]["reference"]["enum"], ["Asia"])
+        self.assertEqual(available_references(ticket, trace)["knowledge_base"], [])
+
+    def test_long_quote_enums_do_not_exceed_api_schema_budget(self):
+        ticket = Ticket.model_validate({"ticket_id": "long-001", "customer_id": "customer-001",
+            "messages": [{"time_label": "today", "text": "x" * 8000} for _ in range(15)]})
+        schema = decision_schema(ticket, [])
+        for choice in schema["$defs"]["Evidence"]["anyOf"]:
+            self.assertNotIn("enum", choice["properties"]["observation"])
+
     def test_rubric_flags_wrong_language_and_unrelated_access_label(self):
         raw_ticket = TICKETS[0]
         result = TriageAgent(DemoBackend(raw_ticket)).run(Ticket.model_validate(raw_ticket))

@@ -24,12 +24,12 @@
         {
           "source": "customer_report",
           "reference": "message:3",
-          "observation": "Customer reports three $29.99 charges and no Pro access; captured versus pending payment status is unverified."
+          "observation": "Okay this is getting ridiculous. Just checked my bank app - I have THREE charges of $29.99 now. None of them refunded. And I STILL don't have Pro access."
         },
         {
           "source": "customer_report",
           "reference": "message:4",
-          "observation": "Presentation is in two hours; customer threatens a bank dispute by end of day."
+          "observation": "HELLO?? Is anyone there??? I need this fixed NOW. I have a presentation in 2 hours and I need the Pro export features. If these charges aren't reversed by end of day I'm disputing all of them with my bank."
         },
         {
           "source": "customer_history",
@@ -90,14 +90,7 @@
               "id": "KB-BILLING",
               "title": "Failed upgrades and repeated payment attempts",
               "content": "For this fictional product, billing specialists verify payment-provider transaction IDs and whether amounts are authorization holds or captured payments. A bank-app report alone does not establish captured charges. Check entitlement activation separately. Do not retry a payment, issue a refund, or promise a reversal deadline from this triage agent. Route disputed or repeated charges with an upcoming deadline to billing for urgent review.",
-              "match_score": 6,
-              "source_type": "mock_product_document"
-            },
-            {
-              "id": "KB-ACCESS",
-              "title": "Multi-user access failure and error 500",
-              "content": "An error 500 with multiple affected users and browsers should be assessed as a possible service incident. A green public status page does not disprove a tenant-specific or regional failure. Escalate broad access loss with a near-term business deadline to the incident owner; gather time range, affected tenant and request IDs if available without delaying escalation. Do not infer a regional outage or root cause without correlated telemetry. Seat count is not an affected-user count.",
-              "match_score": 1,
+              "match_score": 5,
               "source_type": "mock_product_document"
             },
             {
@@ -139,17 +132,17 @@
         {
           "source": "customer_report",
           "reference": "message:1",
-          "observation": "ลูกค้ารายงานว่าเข้าไม่ได้และเห็น error 500"
+          "observation": "ระบบเข้าไม่ได้ครับ ขึ้น error 500"
         },
         {
           "source": "customer_report",
           "reference": "message:2",
-          "observation": "ลูกค้าลองหลายเครื่องและสาม browser แล้ว เพื่อนร่วมงานก็เข้าไม่ได้ แต่ไม่ได้ยืนยันว่าทั้ง 45 คนได้รับผลกระทบ"
+          "observation": "ลองหลายเครื่องแล้ว ทั้ง Chrome, Safari, Firefox ผลเหมือนกันหมด เพื่อนร่วมงานก็เข้าไม่ได้เหมือนกัน"
         },
         {
           "source": "customer_report",
           "reference": "message:3",
-          "observation": "มี demo กับลูกค้ารายใหญ่ช่วงบ่ายและมีผลกระทบทางธุรกิจ"
+          "observation": "ตอนนี้ลูกค้าโวยเข้ามาเยอะมาก เรามี demo กับลูกค้ารายใหญ่บ่ายนี้ ถ้าระบบไม่กลับมา deal นี้อาจจะหลุด"
         },
         {
           "source": "customer_history",
@@ -217,7 +210,7 @@
               "id": "KB-ACCESS",
               "title": "Multi-user access failure and error 500",
               "content": "An error 500 with multiple affected users and browsers should be assessed as a possible service incident. A green public status page does not disprove a tenant-specific or regional failure. Escalate broad access loss with a near-term business deadline to the incident owner; gather time range, affected tenant and request IDs if available without delaying escalation. Do not infer a regional outage or root cause without correlated telemetry. Seat count is not an affected-user count.",
-              "match_score": 10,
+              "match_score": 6,
               "source_type": "mock_product_document"
             }
           ]
@@ -267,17 +260,17 @@
         {
           "source": "customer_report",
           "reference": "message:2",
-          "observation": "Customer already found Settings > Appearance and sees Light and System Default."
+          "observation": "Thanks for the reply! Oh nice, so it's in Settings > Appearance. Found it! But hmm I'm on Pro plan and I only see 'Light' and 'System Default' options. No dark mode toggle?"
         },
         {
           "source": "customer_report",
           "reference": "message:3",
-          "observation": "Customer reports that System Default remains light despite macOS being dark."
+          "observation": "Okay so I switched to 'System Default' and my Mac is set to dark mode, but your app still shows light theme. Is this a bug or am I missing something?"
         },
         {
           "source": "customer_report",
           "reference": "message:4",
-          "observation": "Customer separately requests scheduled theme switching."
+          "observation": "Also random question while I have you - is there a way to schedule dark mode? Like auto-switch at 6pm? Some apps have that. Would be cool if you guys added it 👀"
         },
         {
           "source": "customer_history",
@@ -338,7 +331,7 @@
               "id": "KB-APPEARANCE",
               "title": "Appearance troubleshooting and dark mode scheduling",
               "content": "For this fictional product, Light and System Default are valid appearance options; no separate Dark toggle is promised. If System Default stays light while the operating system is dark, record app version, platform and reproduction steps for the product support specialist. Do not repeat Settings > Appearance advice when the customer already tried it. Scheduled theme switching is not supported in this mock knowledge base; treat it as a separate feature request, with no delivery-date promise.",
-              "match_score": 7,
+              "match_score": 6,
               "source_type": "mock_product_document"
             }
           ]

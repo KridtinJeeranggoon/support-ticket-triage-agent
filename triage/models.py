@@ -23,7 +23,8 @@ class Ticket(Contract):
 class Evidence(Contract):
     source: Literal["customer_report", "customer_history", "knowledge_base", "service_status"]
     reference: str = Field(min_length=1, max_length=200)
-    observation: str = Field(min_length=1, max_length=2000)
+    observation: str = Field(min_length=1, max_length=8000,
+                             description="For customer_report, quote the referenced message exactly; otherwise describe the observed source data.")
 
 
 class Decision(Contract):

@@ -20,7 +20,8 @@
           "type": "string"
         },
         "observation": {
-          "maxLength": 2000,
+          "description": "For customer_report, quote the referenced message exactly; otherwise describe the observed source data.",
+          "maxLength": 8000,
           "minLength": 1,
           "title": "Observation",
           "type": "string"
